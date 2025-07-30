@@ -241,7 +241,7 @@ export default function App() {
       if (newPath.some(n => ![1,2,3].includes(n))) { setInputError("路径只能包含1, 2, 3。"); return; }
       const pathStr = newPath.join(',');
       if (pathsData.some(p => p.path.join(',') === pathStr)) { setInputError("该路径已存在。"); return; }
-      if (pathsData.length >= 100) { setInputError(`最多只能添加 100 条路径。`); return; }
+      if (pathsData.length >= 300) { setInputError(`最多只能添加 300 条路径。`); return; }
 
       setInputError("");
       const newData = calculatePathData(newPath, baseData.indexMaps, baseData.pointsWithBaseType);

@@ -39,7 +39,7 @@ if (success) {
 **错误情况:**
 - 路径格式无效
 - 路径已存在
-- 达到最大路径数限制（100条）
+- 达到最大路径数限制（300条）
 - 基础数据未准备好
 
 #### `removePath(pathIndex: number): Promise<boolean>`

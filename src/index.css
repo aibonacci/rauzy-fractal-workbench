@@ -36,3 +36,48 @@ code {
   border: 2px solid #1F2937;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 }
+
+/* 4:3屏幕特殊优化 */
+@media screen and (min-width: 1024px) and (max-width: 1280px) {
+  /* 4:3屏幕下的特殊布局优化 */
+  .aspect-4-3-layout .data-panel {
+    width: 300px !important;
+  }
+  
+  .aspect-4-3-layout .control-panel {
+    width: 250px !important;
+  }
+}
+
+/* 确保在小屏幕下右侧面板可见 */
+@media screen and (min-width: 640px) {
+  .data-panel {
+    display: block !important;
+  }
+}
+
+/* 防止画布过度收缩 */
+.canvas-container {
+  min-width: 400px;
+}/* Icon b
+utton styles */
+.icon-button {
+  @apply w-8 h-8 p-1.5 hover:bg-gray-600 rounded transition-colors;
+  @apply text-gray-300 hover:text-white;
+  @apply focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 focus:ring-offset-gray-800;
+  @apply cursor-pointer;
+}
+
+/* Mobile responsive icon buttons */
+@media (max-width: 640px) {
+  .icon-button {
+    @apply w-10 h-10 p-2; /* 移动端更大的触摸目标 */
+  }
+}
+
+/* High contrast support */
+@media (prefers-contrast: high) {
+  .icon-button {
+    @apply border border-current;
+  }
+}

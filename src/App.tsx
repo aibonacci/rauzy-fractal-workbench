@@ -14,8 +14,12 @@ import {
 import { dispatchStateChange } from './utils/event-system';
 import { BaseData, PathData, RenderPoint, AppState } from './types';
 import { APP_CONFIG } from './utils/constants';
+import { useI18n } from './i18n/context';
 
 const App: React.FC = () => {
+  // 国际化
+  const { t } = useI18n();
+  
   // 通知系统
   const {
     notifications,
@@ -88,7 +92,7 @@ const App: React.FC = () => {
         ...prev,
         calculationState: {
           ...prev.calculationState,
-          error: 'Math.js 库加载失败'
+          error: t('notifications.mathJsLoadFailed')
         }
       }));
     };
@@ -136,14 +140,14 @@ const App: React.FC = () => {
       try {
         // 显示进度指示器
         if (appState.numPoints > 20000) {
-          setProgressState({ show: true, progress: 0, message: '开始计算...' });
+          setProgressState({ show: true, progress: 0, message: t('notifications.startingCalculation') });
         }
 
         const onProgress = (progress: number, message?: string) => {
           setProgressState(prev => ({
             ...prev,
             progress,
-            message: message || '计算中...'
+            message: message || t('notifications.calculating')
           }));
         };
 
@@ -176,12 +180,12 @@ const App: React.FC = () => {
           setProgressState({ show: false, progress: 0, message: '' });
 
           // 显示计算完成通知
-          showSuccess('计算完成', `已生成 ${formatPointCount(appState.numPoints)} 个分形点`);
+          showSuccess(t('notifications.calculationComplete'), t('notifications.pointsGenerated', { count: formatPointCount(appState.numPoints) }));
         } else {
-          throw new Error('基础数据计算失败');
+          throw new Error(t('notifications.baseDataCalculationFailed'));
         }
       } catch (error) {
-        console.error('计算基础数据时出错:', error);
+        console.error('Error calculating base data:', error);
         
         // 隐藏进度指示器
         setProgressState({ show: false, progress: 0, message: '' });
@@ -191,18 +195,18 @@ const App: React.FC = () => {
           calculationState: {
             ...prev.calculationState,
             isLoading: false,
-            error: '计算基础数据时出错，请重试'
+            error: t('notifications.baseDataCalculationError')
           }
         }));
 
         // 触发错误事件
         dispatchStateChange('ERROR_OCCURRED', {
-          error: error instanceof Error ? error.message : '计算基础数据时出错',
+          error: error instanceof Error ? error.message : t('notifications.baseDataCalculationError'),
           context: 'base_data_calculation'
         });
 
         // 显示错误通知
-        showError('计算失败', '基础数据计算时出错，请重试');
+        showError(t('notifications.calculationFailed'), t('notifications.baseDataCalculationError'));
       } finally {
         calculationRef.current.isCalculating = false;
       }
@@ -219,7 +223,7 @@ const App: React.FC = () => {
       ...prev,
       calculationState: { ...prev.calculationState, isLoading: false }
     }));
-    showInfo('计算已取消');
+    showInfo(t('notifications.calculationCanceled'));
   }, [showInfo]);
 
   // 处理点数变化
@@ -246,30 +250,30 @@ const App: React.FC = () => {
     const validation = validatePath(appState.pathInput);
 
     if (!validation.isValid) {
-      setAppState(prev => ({ ...prev, inputError: validation.error || '路径无效' }));
+      setAppState(prev => ({ ...prev, inputError: validation.error || t('notifications.pathInvalid') }));
       return;
     }
 
     if (!validation.path) {
-      setAppState(prev => ({ ...prev, inputError: '路径解析失败' }));
+      setAppState(prev => ({ ...prev, inputError: t('notifications.pathParsingFailed') }));
       return;
     }
 
     if (isDuplicatePath(validation.path, appState.pathsData.map(p => p.path))) {
-      setAppState(prev => ({ ...prev, inputError: '该路径已存在' }));
+      setAppState(prev => ({ ...prev, inputError: t('notifications.pathAlreadyExists') }));
       return;
     }
 
     if (appState.pathsData.length >= APP_CONFIG.MAX_PATHS) {
       setAppState(prev => ({
         ...prev,
-        inputError: `最多只能添加 ${APP_CONFIG.MAX_PATHS} 条路径`
+        inputError: t('notifications.maxPathsReached', { maxPaths: APP_CONFIG.MAX_PATHS.toString() })
       }));
       return;
     }
 
     if (!appState.baseData) {
-      setAppState(prev => ({ ...prev, inputError: '基础数据未准备好，请稍候' }));
+      setAppState(prev => ({ ...prev, inputError: t('notifications.baseDataNotReady') }));
       return;
     }
 
@@ -295,10 +299,10 @@ const App: React.FC = () => {
       });
 
       // 显示成功通知
-      showSuccess('路径已添加', `路径 (${validation.path.join(',')}) 已成功添加到分析列表`);
+      showSuccess(t('notifications.pathAdded'), t('notifications.pathAddedSuccess', { path: validation.path.join(',') }));
     } catch (error) {
-      console.error('计算路径数据时出错:', error);
-      setAppState(prev => ({ ...prev, inputError: '计算路径数据时出错' }));
+      console.error('Error calculating path data:', error);
+      setAppState(prev => ({ ...prev, inputError: t('notifications.pathDataCalculationError') }));
     }
   }, [appState.pathInput, appState.pathsData, appState.baseData]);
 
@@ -348,7 +352,7 @@ const App: React.FC = () => {
 
   return (
     <MathCalculationErrorBoundary>
-      <div className="bg-gray-800 text-white font-sans h-screen flex flex-col lg:flex-row overflow-hidden">
+      <div className="bg-gray-800 text-white font-sans h-screen flex flex-col sm:flex-row overflow-hidden">
       {/* 左侧控制面板 */}
       <ControlPanel
         numPoints={appState.numPoints}
@@ -364,8 +368,8 @@ const App: React.FC = () => {
       />
 
       {/* 中央 Canvas 区域 */}
-      <div className="flex-grow bg-gray-900 flex items-center justify-center relative order-1 lg:order-none">
-        <div className="w-full h-full max-w-full max-h-full aspect-[4/3]">
+      <div className="flex-grow bg-gray-900 flex items-center justify-center relative order-1 sm:order-none min-w-0">
+        <div className="w-full h-full max-w-full max-h-full aspect-[4/3] canvas-container">
           <FractalCanvas
             points={renderedPoints}
             isLoading={appState.calculationState.isLoading}
@@ -374,16 +378,18 @@ const App: React.FC = () => {
 
         {appState.calculationState.isLoading && <LoadingOverlay />}
 
-        {/* 点数显示 */}
+        {/* 渲染统计信息 */}
         <div className="absolute bottom-4 left-4">
-          <div className="text-center font-mono text-yellow-400 text-sm bg-gray-800 bg-opacity-75 px-3 py-1 rounded">
-            {formatPointCount(appState.numPoints)} 个点
+          <div className="font-mono text-yellow-400 text-xs bg-gray-800 bg-opacity-90 px-3 py-2 rounded space-y-1">
+            <div>{t('canvas.totalPoints', { count: formatPointCount(appState.numPoints) })}</div>
+            <div>{t('canvas.renderedPoints', { count: formatPointCount(renderedPoints.length) })}</div>
+            <div>{t('canvas.renderTime', { time: ((window as any).lastRenderStats?.renderTime || '0') })}</div>
           </div>
         </div>
       </div>
 
-      {/* 右侧数据面板 */}
-      <div className="w-full lg:w-1/4 xl:w-80 bg-gray-800 border-l lg:border-l border-t lg:border-t-0 border-gray-700 p-4 flex-shrink-0 lg:min-w-[300px] lg:max-w-[400px] order-2 lg:order-none">
+      {/* 右侧数据面板 - 进一步压缩宽度 */}
+      <div className="w-full sm:w-[220px] md:w-[240px] lg:w-[260px] bg-gray-800 border-l sm:border-l border-t sm:border-t-0 border-gray-700 p-2 flex-shrink-0 order-2 sm:order-none overflow-y-auto">
         <DataPanel pathsData={appState.pathsData} />
       </div>
 

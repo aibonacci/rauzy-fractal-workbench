@@ -190,27 +190,12 @@ const FractalCanvas: React.FC<FractalCanvasProps> = ({ points, isLoading }) => {
     console.log(`FractalCanvas: Drew ${validPointCount} valid points out of ${renderPoints.length} (max: ${maxRenderPoints})`);
     console.log(`FractalCanvas: Render time: ${renderTime.toFixed(2)}ms`);
 
-    // 绘制统计信息
-    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
-    ctx.fillRect(5, 5, 200, 60);
-    
-    ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
-    ctx.font = '11px monospace';
-    ctx.textAlign = 'left';
-    ctx.fillText(`总点数: ${renderPoints.length.toLocaleString()}`, 10, 20);
-    ctx.fillText(`渲染点数: ${validPointCount.toLocaleString()}`, 10, 35);
-    ctx.fillText(`渲染耗时: ${renderTime.toFixed(1)}ms`, 10, 50);
-    
-    const highlightedCount = renderPoints.filter(p => p.highlightGroup !== -1).length;
-    if (highlightedCount > 0) {
-      ctx.fillText(`高亮点数: ${highlightedCount}`, 10, 35);
-    }
-    
-    // 显示渲染性能
-    const renderStats = PerformanceMonitor.getStats('canvas-render');
-    if (renderStats) {
-      ctx.fillText(`渲染耗时: ${renderStats.latest.toFixed(1)}ms`, 10, highlightedCount > 0 ? 50 : 35);
-    }
+    // 存储渲染统计信息供外部使用
+    (window as any).lastRenderStats = {
+      totalPoints: renderPoints.length,
+      renderedPoints: validPointCount,
+      renderTime: renderTime.toFixed(1)
+    };
 
     endMeasurement();
   }, [transformedPoints]);

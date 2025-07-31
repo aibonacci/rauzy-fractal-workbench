@@ -1,5 +1,6 @@
 import React from 'react';
 import { TEST_IDS } from '../../utils/constants';
+import { useI18n } from '../../i18n/context';
 
 interface PathInputProps {
   value: string;
@@ -16,6 +17,7 @@ const PathInput: React.FC<PathInputProps> = ({
   error,
   disabled
 }) => {
+  const { t } = useI18n();
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !disabled) {
       onSubmit();
@@ -32,7 +34,7 @@ const PathInput: React.FC<PathInputProps> = ({
         htmlFor="path-input" 
         className="block text-sm font-bold mb-2"
       >
-        构建路径 (例如: 1213)
+        {t('controls.pathInput.label')}
       </label>
       
       <input
@@ -43,7 +45,7 @@ const PathInput: React.FC<PathInputProps> = ({
         onChange={handleChange}
         onKeyPress={handleKeyPress}
         disabled={disabled}
-        placeholder="输入路径，如: 1213 或 1,2,1,3"
+        placeholder={t('controls.pathInput.placeholder')}
         className="w-full bg-gray-900 border border-gray-600 rounded px-3 py-2 font-mono text-yellow-400 focus:ring-2 focus:ring-yellow-500 focus:outline-none disabled:opacity-50 disabled:cursor-not-allowed"
       />
       
@@ -59,7 +61,7 @@ const PathInput: React.FC<PathInputProps> = ({
         disabled={disabled || !value.trim()}
         className="w-full mt-2 bg-yellow-500 text-gray-900 font-bold py-2 rounded-lg hover:bg-yellow-400 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors"
       >
-        添加路径到列表
+        {t('controls.pathInput.addButton')}
       </button>
     </div>
   );

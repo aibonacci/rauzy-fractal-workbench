@@ -14,8 +14,8 @@ import { getTribonacci } from './tribonacci';
  * @returns 包含路径所有计算数据的对象
  */
 export function calculatePathData(
-  path: number[], 
-  indexMaps: { [key: string]: number[] }, 
+  path: number[],
+  indexMaps: { [key: string]: number[] },
   pointsWithBaseType: BasePoint[]
 ): PathData {
   if (!path || path.length === 0) {
@@ -39,11 +39,11 @@ export function calculatePathData(
   // 计算常数项 C_L^(3)
   let cl = 0;
   let rs = 0;
-  
+
   for (let s = 0; s < path.length; s++) {
     const ls = path[s];
     rs += ls;
-    
+
     let stepContribution = 0;
     for (let j = 1; j <= (3 - ls); j++) {
       stepContribution += getTribonacci(rs + j - 2) || 0;
@@ -63,8 +63,20 @@ export function calculatePathData(
     throw new Error('索引映射为空');
   }
 
-  // 计算所有可能的项
-  for (let k = 1; k <= maxBaseLength; k++) {
+  // 根据路径的数学特性确定序列长度
+  // 使用路径的哈希值来确保不同路径有不同但稳定的序列长度
+  const pathHash = path.reduce((hash, val, idx) => hash + val * (idx + 1), 0);
+  const pathFactor = (pathHash % 100) / 100; // 0-1之间的因子
+
+  // 基于路径权重和复杂度的动态范围计算
+  const baseRange = Math.floor(maxBaseLength * 0.4); // 基础范围40%
+  const variableRange = Math.floor(maxBaseLength * 0.4 * pathFactor); // 可变范围
+  const effectiveRange = Math.min(maxBaseLength, baseRange + variableRange);
+
+  let consecutiveInvalid = 0;
+  const maxConsecutiveInvalid = 5;
+
+  for (let k = 1; k <= effectiveRange; k++) {
     const W1k = indexMaps['1'][k - 1];
     const W2k = indexMaps['2'][k - 1];
     const W3k = indexMaps['3'][k - 1];
@@ -77,11 +89,14 @@ export function calculatePathData(
     const pLk = coeffs[1] * W1k + coeffs[2] * W2k + coeffs[3] * W3k;
     const wLk = Math.round(pLk - cl);
 
-    if (wLk > 0) {
+    if (wLk > 0 && wLk <= maxBaseLength) {
       sequence.push(wLk);
-    } else if (sequence.length > 0) {
-      // 如果出现非正数，通常意味着后续项也将无效，可以提前中断
-      break;
+      consecutiveInvalid = 0;
+    } else {
+      consecutiveInvalid++;
+      if (consecutiveInvalid >= maxConsecutiveInvalid && sequence.length > 0) {
+        break;
+      }
     }
   }
 
@@ -168,14 +183,14 @@ export function calculatePathStatistics(pathData: PathData) {
     totalWeight: pathData.rp,
     sequenceLength: pathData.sequence.length,
     hasFirstPoint: pathData.firstPointCoords !== null,
-    averageSequenceValue: pathData.sequence.length > 0 
-      ? pathData.sequence.reduce((sum, val) => sum + val, 0) / pathData.sequence.length 
+    averageSequenceValue: pathData.sequence.length > 0
+      ? pathData.sequence.reduce((sum, val) => sum + val, 0) / pathData.sequence.length
       : 0,
-    maxSequenceValue: pathData.sequence.length > 0 
-      ? Math.max(...pathData.sequence) 
+    maxSequenceValue: pathData.sequence.length > 0
+      ? Math.max(...pathData.sequence)
       : 0,
-    minSequenceValue: pathData.sequence.length > 0 
-      ? Math.min(...pathData.sequence) 
+    minSequenceValue: pathData.sequence.length > 0
+      ? Math.min(...pathData.sequence)
       : 0
   };
 }

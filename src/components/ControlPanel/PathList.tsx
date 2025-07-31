@@ -1,6 +1,8 @@
 import React from 'react';
 import { PathData } from '../../types';
 import { HIGHLIGHT_PALETTE, TEST_IDS } from '../../utils/constants';
+import { useI18n } from '../../i18n/context';
+import DeleteButton from '../DeleteButton/DeleteButton';
 
 interface PathListProps {
   pathsData: PathData[];
@@ -8,13 +10,15 @@ interface PathListProps {
 }
 
 const PathList: React.FC<PathListProps> = ({ pathsData, onRemovePath }) => {
+  const { t } = useI18n();
+
   if (pathsData.length === 0) {
     return (
       <div 
         className="bg-gray-900 p-4 rounded-lg text-center text-gray-500 text-sm"
         data-testid={TEST_IDS.PATH_LIST}
       >
-        请构建并添加路径进行分析
+        {t('controls.pathList.empty')}
       </div>
     );
   }
@@ -36,30 +40,31 @@ const PathList: React.FC<PathListProps> = ({ pathsData, onRemovePath }) => {
                 backgroundColor: HIGHLIGHT_PALETTE[index % HIGHLIGHT_PALETTE.length]
               }}
               className="w-4 h-4 rounded-full flex-shrink-0"
-              title={`路径颜色指示器`}
+              title={t('controls.pathList.colorIndicator', { index: (index + 1).toString() })}
             />
             <span 
               className="font-mono text-sm break-all text-white"
-              title={`路径: ${data.path.join(',')}, 权重: ${data.rp}`}
+              title={t('controls.pathList.pathInfo', { 
+                path: data.path.join(','), 
+                weight: data.rp.toString() 
+              })}
             >
               ({data.path.join(',')})
             </span>
           </div>
           
-          <button
+          <DeleteButton
             onClick={() => onRemovePath(index)}
+            size="sm"
+            className="flex-shrink-0"
             data-testid={`${TEST_IDS.DELETE_PATH_BUTTON}-${index}`}
-            className="text-xs bg-red-600 hover:bg-red-500 px-2 py-1 rounded flex-shrink-0 transition-colors"
-            title="删除此路径"
-          >
-            删除
-          </button>
+          />
         </div>
       ))}
       
       {pathsData.length > 0 && (
         <div className="text-xs text-gray-400 text-center pt-2 border-t border-gray-700">
-          共 {pathsData.length} 条路径
+          {t('controls.pathList.totalPaths', { count: pathsData.length.toString() })}
         </div>
       )}
     </div>

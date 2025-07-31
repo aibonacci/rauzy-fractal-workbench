@@ -1,5 +1,6 @@
 import React from 'react';
 import { ControlPanelProps } from '../../types';
+import { useI18n } from '../../i18n/context';
 import PathInput from './PathInput';
 import PathList from './PathList';
 import PointsSlider from './PointsSlider';
@@ -16,11 +17,12 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
   disabled,
   formatPointCount
 }) => {
+  const { t } = useI18n();
   return (
-    <div className="w-full lg:w-1/5 bg-gray-800 border-r lg:border-r border-b lg:border-b-0 border-gray-700 flex-col p-4 space-y-4 flex-shrink-0 flex lg:min-w-[250px] order-0 lg:order-none">
+    <div className="w-full sm:w-[260px] md:w-[270px] lg:w-[280px] bg-gray-800 border-r sm:border-r border-b sm:border-b-0 border-gray-700 flex-col p-4 space-y-4 flex-shrink-0 flex order-0 sm:order-none overflow-y-auto">
       {/* 标题 */}
       <h1 className="text-xl font-bold text-yellow-400 flex-shrink-0">
-        Rauzy 分形工作台
+        {t('app.title')}
       </h1>
       
       {/* 路径输入 */}
@@ -35,7 +37,7 @@ const ControlPanel: React.FC<ControlPanelProps> = ({
       {/* 路径列表 */}
       <div className="flex-grow flex flex-col overflow-hidden min-h-0">
         <label className="block text-sm font-bold mb-2 flex-shrink-0">
-          路径列表
+          {t('controls.pathList.title')}
         </label>
         <PathList
           pathsData={pathsData}

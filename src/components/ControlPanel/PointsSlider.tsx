@@ -1,6 +1,7 @@
 import React, { useCallback, useRef, useEffect } from 'react';
 import { APP_CONFIG, TEST_IDS } from '../../utils/constants';
 import { debounce } from '../../utils/debounce';
+import { useI18n } from '../../i18n/context';
 
 interface PointsSliderProps {
   value: number;
@@ -15,6 +16,7 @@ const PointsSlider: React.FC<PointsSliderProps> = ({
   disabled,
   formatPointCount
 }) => {
+  const { t } = useI18n();
   const [displayValue, setDisplayValue] = React.useState(value);
   const isDragging = useRef(false);
   
@@ -91,7 +93,7 @@ const PointsSlider: React.FC<PointsSliderProps> = ({
           htmlFor="points-slider" 
           className="font-medium text-sm whitespace-nowrap"
         >
-          总点数:
+          {t('controls.pointsSlider.label')}:
         </label>
         
         <input
@@ -118,9 +120,11 @@ const PointsSlider: React.FC<PointsSliderProps> = ({
       </div>
       
       <div className="text-center font-mono text-yellow-400 text-sm">
-        {formatPointCount(displayValue)} 个点
+        {formatPointCount(displayValue)} {t('controls.pointsSlider.unit')}
         {isDragging.current && (
-          <span className="text-gray-400 text-xs ml-2">(拖拽中...)</span>
+          <span className="text-gray-400 text-xs ml-2">
+            ({t('controls.pointsSlider.dragging', { value: formatPointCount(displayValue) })})
+          </span>
         )}
       </div>
       

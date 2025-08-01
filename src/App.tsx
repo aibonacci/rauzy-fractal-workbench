@@ -1,20 +1,24 @@
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
-import { ControlPanel, FractalCanvas, DataPanel, LoadingOverlay } from './components';
+import { ControlPanel, WebGLFractalCanvas as FractalCanvas, DataPanel, LoadingOverlay } from './components';
+import AxisControlPanel from './components/AxisControlPanel/AxisControlPanel';
 import MathCalculationErrorBoundary from './components/ErrorBoundary/MathCalculationErrorBoundary';
 import NotificationSystem from './components/Notification/NotificationSystem';
 import ProgressIndicator from './components/ProgressIndicator/ProgressIndicator';
+import { SkeletonLoader } from './components/SkeletonLoader';
 import { useNotifications } from './hooks/useNotifications';
 import {
-  executeRauzyCoreAlgorithm,
   calculatePathData,
   formatPointCount,
   validatePath,
   isDuplicatePath
 } from './utils';
+import { executeOptimizedRauzyCoreAlgorithm } from './utils/rauzy-core-optimized';
 import { dispatchStateChange } from './utils/event-system';
 import { BaseData, PathData, RenderPoint, AppState } from './types';
 import { APP_CONFIG } from './utils/constants';
 import { useI18n } from './i18n/context';
+import { AxisSettings, DEFAULT_AXIS_SETTINGS } from './utils/webgl-axis-renderer';
+import './utils/performance-test'; // 导入性能测试工具
 
 const App: React.FC = () => {
   // 国际化
@@ -30,6 +34,14 @@ const App: React.FC = () => {
     showInfo
   } = useNotifications();
 
+  // 初始化状态
+  const [initState, setInitState] = useState({
+    isInitializing: true,
+    mathJsLoaded: false,
+    uiReady: false,
+    shouldStartCalculation: false
+  });
+
   // 应用状态
   const [appState, setAppState] = useState<AppState>({
     numPoints: APP_CONFIG.DEFAULT_POINTS,
@@ -43,6 +55,9 @@ const App: React.FC = () => {
       error: null
     }
   });
+
+  // 坐标轴状态
+  const [axisSettings, setAxisSettings] = useState<AxisSettings>(DEFAULT_AXIS_SETTINGS);
 
   // 进度状态
   const [progressState, setProgressState] = useState<{
@@ -68,42 +83,60 @@ const App: React.FC = () => {
     abortController: null
   });
 
-  // 加载 Math.js 库
+  // 初始化流程
   useEffect(() => {
-    if ((window as any).math) {
-      setAppState(prev => ({
-        ...prev,
-        calculationState: { ...prev.calculationState, mathJsLoaded: true }
-      }));
-      return;
-    }
-
-    const script = document.createElement('script');
-    script.src = "https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js";
-    script.async = true;
-    script.onload = () => {
-      setAppState(prev => ({
-        ...prev,
-        calculationState: { ...prev.calculationState, mathJsLoaded: true }
-      }));
-    };
-    script.onerror = () => {
-      setAppState(prev => ({
-        ...prev,
-        calculationState: {
-          ...prev.calculationState,
-          error: t('notifications.mathJsLoadFailed')
+    const initializeApp = async () => {
+      try {
+        // 步骤1: 立即显示UI框架
+        setInitState(prev => ({ ...prev, uiReady: true }));
+        
+        // 步骤2: 延迟加载Math.js，避免阻塞初始渲染
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        if (!(window as any).math) {
+          const script = document.createElement('script');
+          script.src = "https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.min.js";
+          script.async = true;
+          
+          await new Promise<void>((resolve, reject) => {
+            script.onload = () => resolve();
+            script.onerror = () => reject(new Error('Math.js加载失败'));
+            document.body.appendChild(script);
+          });
         }
-      }));
-    };
-    document.body.appendChild(script);
-
-    return () => {
-      if (script.parentNode) {
-        document.body.removeChild(script);
+        
+        // 步骤3: Math.js加载完成
+        setInitState(prev => ({ ...prev, mathJsLoaded: true }));
+        setAppState(prev => ({
+          ...prev,
+          calculationState: { ...prev.calculationState, mathJsLoaded: true }
+        }));
+        
+        // 步骤4: 延迟一段时间再完成初始化，让用户看到界面
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
+        // 步骤5: 完成初始化，但不立即开始计算
+        setInitState(prev => ({ 
+          ...prev, 
+          isInitializing: false,
+          shouldStartCalculation: false // 让用户主动触发计算
+        }));
+        
+      } catch (error) {
+        console.error('初始化失败:', error);
+        setAppState(prev => ({
+          ...prev,
+          calculationState: {
+            ...prev.calculationState,
+            error: t('notifications.mathJsLoadFailed')
+          }
+        }));
+        setInitState(prev => ({ ...prev, isInitializing: false }));
       }
     };
-  }, []);
+
+    initializeApp();
+  }, [t]);
 
   // 异步计算基础数据
   const calculateBaseData = useCallback(async (
@@ -111,17 +144,14 @@ const App: React.FC = () => {
     onProgress?: (progress: number, message?: string) => void,
     shouldCancel?: () => boolean
   ): Promise<BaseData | null> => {
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        const data = executeRauzyCoreAlgorithm(points, onProgress, shouldCancel);
-        resolve(data);
-      }, 50);
-    });
+    // 添加小延迟确保UI状态更新
+    await new Promise(resolve => setTimeout(resolve, 50));
+    return await executeOptimizedRauzyCoreAlgorithm(points, onProgress, shouldCancel);
   }, []);
 
-  // 当点数变化时重新计算基础数据
+  // 当点数变化时重新计算基础数据（仅在初始化完成后）
   useEffect(() => {
-    if (!appState.calculationState.mathJsLoaded) return;
+    if (!appState.calculationState.mathJsLoaded || initState.isInitializing) return;
 
     // 避免重复计算相同的点数
     if (calculationRef.current.currentNumPoints === appState.numPoints ||
@@ -225,6 +255,19 @@ const App: React.FC = () => {
     }));
     showInfo(t('notifications.calculationCanceled'));
   }, [showInfo]);
+
+  // 处理坐标轴设置变化
+  const handleAxisSettingsChange = useCallback((newSettings: AxisSettings) => {
+    setAxisSettings(newSettings);
+    
+    // 触发坐标轴设置变化事件
+    dispatchStateChange('AXIS_SETTINGS_CHANGED', {
+      settings: newSettings,
+      timestamp: Date.now()
+    });
+
+    console.log('🎯 坐标轴设置已更新:', newSettings);
+  }, []);
 
   // 处理点数变化
   const handleNumPointsChange = useCallback((points: number) => {
@@ -348,24 +391,44 @@ const App: React.FC = () => {
     return points;
   }, [appState.baseData, appState.pathsData]);
 
-  const isDisabled = !appState.baseData || appState.calculationState.isLoading;
+  const isDisabled = initState.isInitializing || appState.calculationState.isLoading;
 
   return (
     <MathCalculationErrorBoundary>
+      {/* 骨架屏加载界面 */}
+      <SkeletonLoader 
+        show={initState.isInitializing}
+        progress={initState.mathJsLoaded ? 80 : (initState.uiReady ? 40 : 10)}
+        message={
+          !initState.uiReady ? '正在加载界面...' :
+          !initState.mathJsLoaded ? '正在加载数学库...' :
+          '准备就绪...'
+        }
+      />
+      
       <div className="bg-gray-800 text-white font-sans h-screen flex flex-col sm:flex-row overflow-hidden">
       {/* 左侧控制面板 */}
-      <ControlPanel
-        numPoints={appState.numPoints}
-        onNumPointsChange={handleNumPointsChange}
-        pathInput={appState.pathInput}
-        onPathInputChange={handlePathInputChange}
-        inputError={appState.inputError}
-        onAddPath={handleAddPath}
-        pathsData={appState.pathsData}
-        onRemovePath={handleRemovePath}
-        disabled={isDisabled}
-        formatPointCount={formatPointCount}
-      />
+      <div className="w-full sm:w-[280px] md:w-[300px] lg:w-[320px] bg-gray-800 border-r sm:border-r border-b sm:border-b-0 border-gray-700 p-3 flex-shrink-0 order-0 sm:order-none overflow-y-auto">
+        <ControlPanel
+          numPoints={appState.numPoints}
+          onNumPointsChange={handleNumPointsChange}
+          pathInput={appState.pathInput}
+          onPathInputChange={handlePathInputChange}
+          inputError={appState.inputError}
+          onAddPath={handleAddPath}
+          pathsData={appState.pathsData}
+          onRemovePath={handleRemovePath}
+          disabled={isDisabled}
+          formatPointCount={formatPointCount}
+        />
+        
+        {/* 坐标轴控制面板 */}
+        <AxisControlPanel
+          settings={axisSettings}
+          onSettingsChange={handleAxisSettingsChange}
+          disabled={isDisabled}
+        />
+      </div>
 
       {/* 中央 Canvas 区域 */}
       <div className="flex-grow bg-gray-900 flex items-center justify-center relative order-1 sm:order-none min-w-0">
@@ -373,6 +436,7 @@ const App: React.FC = () => {
           <FractalCanvas
             points={renderedPoints}
             isLoading={appState.calculationState.isLoading}
+            axisSettings={axisSettings}
           />
         </div>
 
@@ -381,6 +445,7 @@ const App: React.FC = () => {
         {/* 渲染统计信息 */}
         <div className="absolute bottom-4 left-4">
           <div className="font-mono text-yellow-400 text-xs bg-gray-800 bg-opacity-90 px-3 py-2 rounded space-y-1">
+            <div>{t('canvas.renderMode', { mode: 'WebGL' })}</div>
             <div>{t('canvas.totalPoints', { count: formatPointCount(appState.numPoints) })}</div>
             <div>{t('canvas.renderedPoints', { count: formatPointCount(renderedPoints.length) })}</div>
             <div>{t('canvas.renderTime', { time: ((window as any).lastRenderStats?.renderTime || '0') })}</div>

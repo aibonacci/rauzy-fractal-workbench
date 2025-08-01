@@ -1,6 +1,8 @@
 import { BaseData, BasePoint } from '../types';
 import { precomputeTribonacci } from './tribonacci';
 import { ComputationCache, PerformanceMonitor } from './performance';
+import { EigenCache } from './eigen-cache';
+import { IncrementalPointCache } from './incremental-cache';
 
 /**
  * Rauzy分形核心算法实现
@@ -18,15 +20,61 @@ declare global {
  * @param targetPointCount 目标点数
  * @returns 基础数据或null（如果math.js未加载）
  */
-export function executeRauzyCoreAlgorithm(
+export async function executeRauzyCoreAlgorithm(
   targetPointCount: number, 
   onProgress?: (progress: number, message?: string) => void,
   shouldCancel?: () => boolean
-): BaseData | null {
-  // 检查缓存
-  const cacheKey = `rauzy-core-${targetPointCount}`;
-  const cachedResult = ComputationCache.get(cacheKey);
+): Promise<BaseData | null> {
+  // 检查增量缓存
+  const cacheKey = 'rauzy-incremental';
+  const eigenKey = 'rauzy-matrix-1-1-1';
+  
+  const incrementalResult = IncrementalPointCache.get(cacheKey, targetPointCount);
+  if (incrementalResult) {
+    // 如果是完全匹配或截取，提供渐进式进度显示
+    if (incrementalResult.pointsWithBaseType.length === targetPointCount) {
+      // 模拟渐进式进度，让用户看到进度变化
+      const steps = [10, 30, 60, 85, 100];
+      const messages = ['读取缓存...', '验证数据...', '准备渲染...', '优化性能...', '缓存命中，计算完成'];
+      
+      for (let i = 0; i < steps.length; i++) {
+        onProgress?.(steps[i], messages[i]);
+        // 短暂延迟让用户看到进度变化
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      
+      return incrementalResult;
+    }
+    
+    // 如果需要增量计算
+    const result = await IncrementalPointCache.incrementalCompute(
+      incrementalResult, 
+      targetPointCount, 
+      eigenKey,
+      onProgress
+    );
+    
+    // 缓存新结果
+    IncrementalPointCache.set(cacheKey, result, eigenKey);
+    onProgress?.(100, '增量计算完成');
+    return result;
+  }
+
+  // 检查传统缓存
+  const traditionalCacheKey = `rauzy-core-${targetPointCount}`;
+  const cachedResult = ComputationCache.get(traditionalCacheKey);
   if (cachedResult) {
+    // 提供渐进式进度显示
+    const steps = [15, 40, 70, 90, 100];
+    const messages = ['读取传统缓存...', '数据验证...', '转换格式...', '同步增量缓存...', '传统缓存命中，计算完成'];
+    
+    for (let i = 0; i < steps.length; i++) {
+      onProgress?.(steps[i], messages[i]);
+      await new Promise(resolve => setTimeout(resolve, 60));
+    }
+    
+    // 同时保存到增量缓存
+    IncrementalPointCache.set(cacheKey, cachedResult, eigenKey);
     return cachedResult;
   }
 
@@ -44,51 +92,15 @@ export function executeRauzyCoreAlgorithm(
     const maxPrecompute = Math.min(Math.max(1000, targetPointCount), 50000);
     precomputeTribonacci(maxPrecompute);
 
-    // 步骤 1-3: 矩阵与坐标变换
+    // 步骤 1-3: 矩阵与坐标变换 - 使用缓存优化
     const M = math.matrix([[1, 1, 1], [1, 0, 0], [0, 1, 0]]);
-    const eigenInfo = math.eigs(M);
-    const eigenvalues = eigenInfo.values.toArray();
-    const eigenvectors = eigenInfo.vectors;
-
-    // 找到扩张特征值（绝对值 > 1）
-    const expandingIndex = eigenvalues.findIndex((val: any) => 
-      typeof val === 'number' && Math.abs(val) > 1
-    );
+    const eigenDecomp = EigenCache.getOrCompute('rauzy-matrix-1-1-1', M);
     
-    if (expandingIndex === -1) {
-      throw new Error('未找到扩张特征值');
-    }
+    // 从缓存结果中提取所需数据
+    const { invBasisMatrix } = eigenDecomp;
 
-    // 找到复数特征值
-    const complexIndex = eigenvalues.findIndex((val: any) => typeof val === 'object');
-    
-    if (complexIndex === -1) {
-      throw new Error('未找到复数特征值');
-    }
-
-    // 获取特征向量
-    let expandingVec = math.column(eigenvectors, expandingIndex);
-    let complexVec = math.column(eigenvectors, complexIndex);
-
-    // 归一化特征向量
-    expandingVec = math.divide(expandingVec, expandingVec.get([0, 0]));
-    complexVec = math.divide(complexVec, complexVec.get([0, 0]));
-
-    // 分离复数特征向量的实部和虚部
-    const contractingVecReal = math.re(complexVec);
-    const contractingVecImag = math.im(complexVec);
-
-    // 构建基变换矩阵
-    const basisMatrix = math.transpose(math.matrix([
-      expandingVec.toArray().flat(),
-      contractingVecReal.toArray().flat(),
-      contractingVecImag.toArray().flat()
-    ]));
-
-    const invBasisMatrix = math.inv(basisMatrix);
-
-    // 步骤 4: 生成符号序列 - 优化版本
-    onProgress?.(10, '生成符号序列...');
+    // 步骤 4: 生成符号序列 - 优化版本（分配5%进度）
+    onProgress?.(1, '生成符号序列...');
     let word = "1";
     
     // 使用更高效的字符串构建方法
@@ -111,9 +123,11 @@ export function executeRauzyCoreAlgorithm(
       }
       word = nextWord;
       
-      // 报告进度
-      const progress = Math.min(30, 10 + (word.length / targetPointCount) * 20);
+      // 报告进度 - 符号序列生成只占5%
+      const progress = Math.min(5, 1 + (word.length / targetPointCount) * 4);
       onProgress?.(progress, `生成符号序列... ${word.length}/${targetPointCount}`);
+      // 添加小延迟让进度更新可见
+      await new Promise(resolve => setTimeout(resolve, 5));
       
       // 如果生成的序列已经足够长，截断并退出
       if (word.length >= targetPointCount) {
@@ -122,8 +136,8 @@ export function executeRauzyCoreAlgorithm(
       }
     }
 
-    // 构建索引映射
-    onProgress?.(40, '构建索引映射...');
+    // 构建索引映射（分配5%进度）
+    onProgress?.(5, '构建索引映射...');
     const indexMaps: { [key: string]: number[] } = { '1': [], '2': [], '3': [] };
     for (let i = 0; i < word.length; i++) {
       indexMaps[word[i]].push(i + 1);
@@ -133,24 +147,32 @@ export function executeRauzyCoreAlgorithm(
         if (shouldCancel?.()) {
           throw new Error('计算已取消');
         }
-        const progress = 40 + (i / word.length) * 10;
+        const progress = 5 + (i / word.length) * 5;
         onProgress?.(progress, `构建索引映射... ${i}/${word.length}`);
+        // 添加小延迟让进度更新可见
+        await new Promise(resolve => setTimeout(resolve, 2));
       }
     }
 
-    // 步骤 5: 构建阶梯并投影到平面
-    onProgress?.(50, '计算点坐标...');
+    // 步骤 5: 构建阶梯并投影到平面（分配85%进度，这是最耗时的部分）
+    onProgress?.(10, '计算点坐标...');
     const pointsWithBaseType: BasePoint[] = [];
     const abelianVector = { '1': 0, '2': 0, '3': 0 };
 
     for (let N = 1; N < word.length; N++) {
-      // 检查取消和报告进度（每5000个点）
-      if (N % 5000 === 0) {
+      // 动态调整进度报告频率：小数据集更频繁，大数据集较少
+      const reportInterval = Math.max(100, Math.min(5000, Math.floor(word.length / 100)));
+      
+      // 检查取消和报告进度
+      if (N % reportInterval === 0) {
         if (shouldCancel?.()) {
           throw new Error('计算已取消');
         }
-        const progress = 50 + (N / word.length) * 40;
+        // 点坐标计算占85%的进度（10% -> 95%）
+        const progress = 10 + (N / word.length) * 85;
         onProgress?.(progress, `计算点坐标... ${N}/${word.length}`);
+        // 添加小延迟让进度更新可见，但不影响性能
+        await new Promise(resolve => setTimeout(resolve, 1));
       }
       
       const prevChar = word[N - 1] as '1' | '2' | '3';
@@ -198,8 +220,9 @@ export function executeRauzyCoreAlgorithm(
     console.log(`Rauzy Core: Generated ${pointsWithBaseType.length} points from ${word.length} symbols`);
     console.log(`First few points:`, pointsWithBaseType.slice(0, 3));
 
-    // 缓存结果
-    ComputationCache.set(cacheKey, result, 10 * 60 * 1000); // 缓存10分钟
+    // 缓存结果到两个缓存系统
+    ComputationCache.set(traditionalCacheKey, result, 10 * 60 * 1000); // 传统缓存10分钟
+    IncrementalPointCache.set(cacheKey, result, eigenKey); // 增量缓存
     
     onProgress?.(100, '计算完成');
     

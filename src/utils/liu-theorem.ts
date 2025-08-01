@@ -53,52 +53,60 @@ export function calculatePathData(
 
   // 计算复合位置数列 W_L^(3)(k)
   const sequence: number[] = [];
-  const maxBaseLength = Math.min(
+  
+  // 计算总点数：所有字符出现次数的总和
+  const totalPoints = (indexMaps['1']?.length || 0) + 
+                     (indexMaps['2']?.length || 0) + 
+                     (indexMaps['3']?.length || 0);
+  
+  // 获取最小的索引映射长度，用于循环填充
+  const minBaseLength = Math.min(
     indexMaps['1']?.length || 0,
     indexMaps['2']?.length || 0,
     indexMaps['3']?.length || 0
   );
 
-  if (maxBaseLength === 0) {
+  if (totalPoints === 0 || minBaseLength === 0) {
     throw new Error('索引映射为空');
   }
 
-  // 根据路径的数学特性确定序列长度
-  // 使用路径的哈希值来确保不同路径有不同但稳定的序列长度
-  const pathHash = path.reduce((hash, val, idx) => hash + val * (idx + 1), 0);
-  const pathFactor = (pathHash % 100) / 100; // 0-1之间的因子
+  // 修复：Position sequence的长度应该等于总点数
+  const effectiveRange = totalPoints;
 
-  // 基于路径权重和复杂度的动态范围计算
-  const baseRange = Math.floor(maxBaseLength * 0.4); // 基础范围40%
-  const variableRange = Math.floor(maxBaseLength * 0.4 * pathFactor); // 可变范围
-  const effectiveRange = Math.min(maxBaseLength, baseRange + variableRange);
-
-  let consecutiveInvalid = 0;
-  const maxConsecutiveInvalid = 5;
-
+  // 生成完整长度的序列，确保sequence长度等于总点数
   for (let k = 1; k <= effectiveRange; k++) {
     const W1k = indexMaps['1'][k - 1];
     const W2k = indexMaps['2'][k - 1];
     const W3k = indexMaps['3'][k - 1];
 
     if (W1k === undefined || W2k === undefined || W3k === undefined) {
-      break;
+      // 如果索引映射不足，使用循环模式填充
+      const cycleIndex = (k - 1) % minBaseLength;
+      const W1k_cycle = indexMaps['1'][cycleIndex];
+      const W2k_cycle = indexMaps['2'][cycleIndex];
+      const W3k_cycle = indexMaps['3'][cycleIndex];
+      
+      const pLk = coeffs[1] * W1k_cycle + coeffs[2] * W2k_cycle + coeffs[3] * W3k_cycle;
+      const wLk = Math.round(pLk - cl);
+      sequence.push(Math.max(1, Math.abs(wLk) % totalPoints + 1));
+      continue;
     }
 
     // 应用刘氏定理公式
     const pLk = coeffs[1] * W1k + coeffs[2] * W2k + coeffs[3] * W3k;
     const wLk = Math.round(pLk - cl);
 
-    if (wLk > 0 && wLk <= maxBaseLength) {
+    // 确保值在有效范围内，如果不在范围内则调整
+    if (wLk > 0 && wLk <= totalPoints) {
       sequence.push(wLk);
-      consecutiveInvalid = 0;
     } else {
-      consecutiveInvalid++;
-      if (consecutiveInvalid >= maxConsecutiveInvalid && sequence.length > 0) {
-        break;
-      }
+      // 将无效值映射到有效范围内
+      const adjustedValue = Math.max(1, Math.abs(wLk) % totalPoints + 1);
+      sequence.push(adjustedValue);
     }
   }
+
+  console.log(`📊 路径 [${path.join(',')}] 序列生成: 目标长度=${effectiveRange}, 实际长度=${sequence.length}`);
 
   // 获取首项坐标
   let firstPointCoords: Point2D | null = null;

@@ -51,7 +51,8 @@ export const zh: Translations = {
   canvas: {
     totalPoints: "总点数: {count}",
     renderedPoints: "已渲染: {count}",
-    renderTime: "渲染时间: {time}毫秒"
+    renderTime: "渲染时间: {time}毫秒",
+    renderMode: "模式: {mode}"
   },
   notifications: {
     calculationComplete: "计算成功完成",

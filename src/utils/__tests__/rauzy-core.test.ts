@@ -33,11 +33,11 @@ describe('Rauzy核心算法', () => {
     });
   });
 
-  it('当math.js未加载时应该返回null', () => {
+  it('当math.js未加载时应该返回null', async () => {
     // @ts-ignore
     delete global.window.math;
     
-    const result = executeRauzyCoreAlgorithm(1000);
+    const result = await executeRauzyCoreAlgorithm(1000);
     expect(result).toBeNull();
   });
 

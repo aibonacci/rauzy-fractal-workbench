@@ -4,12 +4,9 @@ import { BASE_COLORS_ALPHA, HIGHLIGHT_PALETTE, AXIS_COLOR, TEST_IDS } from '../.
 import { CanvasOptimizer, PerformanceMonitor, MemoryManager } from '../../utils/performance';
 
 // 根据点数量动态调整最大渲染点数
+// 移除渲染限制，信任Canvas优化器和视口裁剪处理性能
 const getMaxRenderPoints = (totalPoints: number): number => {
-  if (totalPoints <= 10000) return totalPoints;
-  if (totalPoints <= 50000) return Math.min(totalPoints, 20000);
-  if (totalPoints <= 200000) return Math.min(totalPoints, 50000);
-  if (totalPoints <= 500000) return Math.min(totalPoints, 100000);
-  return Math.min(totalPoints, 200000); // 最多渲染20万个点
+  return totalPoints; // 全量渲染，让优化器处理
 };
 
 const FractalCanvas: React.FC<FractalCanvasProps> = ({ points, isLoading }) => {

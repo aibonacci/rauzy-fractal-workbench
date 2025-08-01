@@ -51,7 +51,8 @@ export const en: Translations = {
     canvas: {
         totalPoints: "Total Points: {count}",
         renderedPoints: "Rendered: {count}",
-        renderTime: "Render Time: {time}ms"
+        renderTime: "Render Time: {time}ms",
+        renderMode: "Mode: {mode}"
     },
     notifications: {
         calculationComplete: "Calculation completed successfully",

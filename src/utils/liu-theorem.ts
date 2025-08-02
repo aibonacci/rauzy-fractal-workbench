@@ -51,62 +51,76 @@ export function calculatePathData(
     cl += stepContribution;
   }
 
-  // 计算复合位置数列 W_L^(3)(k)
+  // 计算复合位置数列 W_L^(3)(k) - 自然长度版本
   const sequence: number[] = [];
-  
-  // 计算总点数：所有字符出现次数的总和
-  const totalPoints = (indexMaps['1']?.length || 0) + 
-                     (indexMaps['2']?.length || 0) + 
-                     (indexMaps['3']?.length || 0);
-  
-  // 获取最小的索引映射长度，用于循环填充
-  const minBaseLength = Math.min(
-    indexMaps['1']?.length || 0,
-    indexMaps['2']?.length || 0,
-    indexMaps['3']?.length || 0
-  );
 
-  if (totalPoints === 0 || minBaseLength === 0) {
+  // 计算Tribonacci词的总长度（用于边界检查）
+  const totalWordLength = (indexMaps['1']?.length || 0) +
+    (indexMaps['2']?.length || 0) +
+    (indexMaps['3']?.length || 0);
+
+  if (totalWordLength === 0) {
     throw new Error('索引映射为空');
   }
 
-  // 修复：Position sequence的长度应该等于总点数
-  const effectiveRange = totalPoints;
+  // 自然生成序列，直到遇到边界或无效值
+  let k = 1;
+  const maxIterations = Math.max(
+    indexMaps['1']?.length || 0,
+    indexMaps['2']?.length || 0,
+    indexMaps['3']?.length || 0
+  ) * 2; // 设置一个合理的上限防止无限循环
 
-  // 生成完整长度的序列，确保sequence长度等于总点数
-  for (let k = 1; k <= effectiveRange; k++) {
-    const W1k = indexMaps['1'][k - 1];
-    const W2k = indexMaps['2'][k - 1];
-    const W3k = indexMaps['3'][k - 1];
+  while (k <= maxIterations) {
+    // 安全访问索引映射，使用循环索引避免越界
+    let W1k: number, W2k: number, W3k: number;
 
-    if (W1k === undefined || W2k === undefined || W3k === undefined) {
-      // 如果索引映射不足，使用循环模式填充
-      const cycleIndex = (k - 1) % minBaseLength;
-      const W1k_cycle = indexMaps['1'][cycleIndex];
-      const W2k_cycle = indexMaps['2'][cycleIndex];
-      const W3k_cycle = indexMaps['3'][cycleIndex];
-      
-      const pLk = coeffs[1] * W1k_cycle + coeffs[2] * W2k_cycle + coeffs[3] * W3k_cycle;
-      const wLk = Math.round(pLk - cl);
-      sequence.push(Math.max(1, Math.abs(wLk) % totalPoints + 1));
-      continue;
+    if (k <= indexMaps['1'].length) {
+      W1k = indexMaps['1'][k - 1];
+    } else {
+      W1k = indexMaps['1'][(k - 1) % indexMaps['1'].length];
     }
 
-    // 应用刘氏定理公式
+    if (k <= indexMaps['2'].length) {
+      W2k = indexMaps['2'][k - 1];
+    } else {
+      W2k = indexMaps['2'][(k - 1) % indexMaps['2'].length];
+    }
+
+    if (k <= indexMaps['3'].length) {
+      W3k = indexMaps['3'][k - 1];
+    } else {
+      W3k = indexMaps['3'][(k - 1) % indexMaps['3'].length];
+    }
+
     const pLk = coeffs[1] * W1k + coeffs[2] * W2k + coeffs[3] * W3k;
     const wLk = Math.round(pLk - cl);
 
-    // 确保值在有效范围内，如果不在范围内则调整
-    if (wLk > 0 && wLk <= totalPoints) {
-      sequence.push(wLk);
-    } else {
-      // 将无效值映射到有效范围内
-      const adjustedValue = Math.max(1, Math.abs(wLk) % totalPoints + 1);
-      sequence.push(adjustedValue);
+    // 边界检查：如果序列项超出Tribonacci词范围，停止生成
+    if (wLk > totalWordLength) {
+      console.log(`📊 路径 [${path.join(',')}] 序列在第${k}项超出边界 (${wLk} > ${totalWordLength})，停止生成`);
+      break;
     }
+
+    // 有效性检查：如果序列项为非正数，根据情况处理
+    if (wLk <= 0) {
+      if (sequence.length > 0) {
+        console.log(`📊 路径 [${path.join(',')}] 序列在第${k}项变为非正数 (${wLk})，停止生成`);
+        break;
+      }
+      // 如果还没有有效项，继续尝试
+    } else {
+      sequence.push(wLk);
+    }
+
+    k++;
   }
 
-  console.log(`📊 路径 [${path.join(',')}] 序列生成: 目标长度=${effectiveRange}, 实际长度=${sequence.length}`);
+  const totalPoints = (indexMaps['1']?.length || 0) +
+    (indexMaps['2']?.length || 0) +
+    (indexMaps['3']?.length || 0);
+
+  console.log(`📊 路径 [${path.join(',')}] 序列生成: 实际长度=${sequence.length}, 覆盖率=${(sequence.length / totalPoints * 100).toFixed(1)}%`);
 
   // 获取首项坐标
   let firstPointCoords: Point2D | null = null;

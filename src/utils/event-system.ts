@@ -4,7 +4,7 @@
  */
 
 export interface StateChangeEvent {
-  type: 'PATH_ADDED' | 'PATH_REMOVED' | 'CALCULATION_COMPLETE' | 'POINTS_UPDATED' | 'ERROR_OCCURRED';
+  type: 'PATH_ADDED' | 'PATH_REMOVED' | 'CALCULATION_COMPLETE' | 'POINTS_UPDATED' | 'ERROR_OCCURRED' | 'AXIS_SETTINGS_CHANGED';
   payload: any;
   timestamp: number;
 }

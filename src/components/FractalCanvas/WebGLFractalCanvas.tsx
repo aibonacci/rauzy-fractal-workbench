@@ -17,9 +17,9 @@ interface WebGLFractalCanvasProps extends FractalCanvasProps {
   axisSettings?: AxisSettings;
 }
 
-const WebGLFractalCanvas: React.FC<WebGLFractalCanvasProps> = ({ 
-  points, 
-  isLoading, 
+const WebGLFractalCanvas: React.FC<WebGLFractalCanvasProps> = ({
+  points,
+  isLoading,
   enableWebGL = true,
   onViewChange,
   axisSettings = DEFAULT_AXIS_SETTINGS
@@ -41,7 +41,7 @@ const WebGLFractalCanvas: React.FC<WebGLFractalCanvasProps> = ({
       const renderer = new EnhancedWebGLRenderer(canvasRef.current, axisSettings);
       webglRendererRef.current = renderer;
       setWebglSupported(true);
-      
+
       console.log('🚀 增强型WebGL渲染器初始化成功');
     } catch (error) {
       console.warn('WebGL不支持，回退到Canvas 2D:', error);
@@ -75,11 +75,11 @@ const WebGLFractalCanvas: React.FC<WebGLFractalCanvasProps> = ({
 
     const rect = container.getBoundingClientRect();
     const dpr = window.devicePixelRatio || 1;
-    
+
     // 设置画布实际尺寸
     canvas.width = rect.width * dpr;
     canvas.height = rect.height * dpr;
-    
+
     // 设置CSS尺寸
     canvas.style.width = `${rect.width}px`;
     canvas.style.height = `${rect.height}px`;
@@ -93,7 +93,7 @@ const WebGLFractalCanvas: React.FC<WebGLFractalCanvasProps> = ({
   // 监听窗口尺寸变化
   useEffect(() => {
     handleResize();
-    
+
     const resizeObserver = new ResizeObserver(handleResize);
     if (canvasRef.current?.parentElement) {
       resizeObserver.observe(canvasRef.current.parentElement);
@@ -117,14 +117,14 @@ const WebGLFractalCanvas: React.FC<WebGLFractalCanvasProps> = ({
       // WebGL渲染
       try {
         console.log(`🎨 开始简洁WebGL渲染: ${points.length} 点`);
-        
+
         // 确保画布尺寸正确
         handleResize();
-        
+
         // 更新数据并渲染
         webglRendererRef.current.updatePoints(points);
         webglRendererRef.current.render();
-        
+
         const renderTime = performance.now() - startTime;
         setRenderStats({
           pointCount: points.length,
@@ -186,16 +186,16 @@ const WebGLFractalCanvas: React.FC<WebGLFractalCanvasProps> = ({
       '3': 'rgba(51, 51, 255, 0.8)',   // 蓝色
     };
 
-    // 渲染点
-    const maxRenderPoints = Math.min(points.length, 50000); // Canvas 2D限制
+    // 渲染点 - 移除限制，让Canvas 2D也支持大数据量
+    const maxRenderPoints = points.length; // 移除限制
     for (let i = 0; i < maxRenderPoints; i++) {
       const point = points[i];
-      
+
       const x = ((point.re - adjustedMinX) / (adjustedMaxX - adjustedMinX)) * canvas.width;
       const y = ((point.im - adjustedMinY) / (adjustedMaxY - adjustedMinY)) * canvas.height;
-      
+
       if (isNaN(x) || isNaN(y)) continue;
-      
+
       ctx.fillStyle = colorMap[point.baseType] || 'rgba(128, 128, 128, 0.8)';
       ctx.beginPath();
       ctx.arc(x, y, 2, 0, 2 * Math.PI);
@@ -221,7 +221,7 @@ const WebGLFractalCanvas: React.FC<WebGLFractalCanvasProps> = ({
   const resetView = useCallback(() => {
     if (webglRendererRef.current) {
       webglRendererRef.current.resetView();
-      
+
       const transform = webglRendererRef.current.getTransform();
       onViewChange?.(transform);
     }
@@ -236,7 +236,7 @@ const WebGLFractalCanvas: React.FC<WebGLFractalCanvasProps> = ({
   const setViewTransform = useCallback((transform: Partial<ViewTransform>) => {
     if (webglRendererRef.current) {
       webglRendererRef.current.setTransform(transform);
-      
+
       const newTransform = webglRendererRef.current.getTransform();
       onViewChange?.(newTransform);
     }
@@ -248,12 +248,12 @@ const WebGLFractalCanvas: React.FC<WebGLFractalCanvasProps> = ({
         ref={canvasRef}
         className="w-full h-full"
         data-testid={TEST_IDS.FRACTAL_CANVAS}
-        style={{ 
+        style={{
           imageRendering: 'pixelated',
           cursor: webglSupported ? 'grab' : 'default'
         }}
       />
-      
+
       {/* 加载指示器 */}
       {isLoading && (
         <div className="absolute inset-0 flex items-center justify-center bg-gray-900 bg-opacity-75">

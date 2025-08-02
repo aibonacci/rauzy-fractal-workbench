@@ -216,15 +216,26 @@ export class SimpleWebGLRenderer {
     const positions = new Float32Array(points.length * 2);
     const colors = new Float32Array(points.length * 3);
 
-    // 颜色映射
-    const colorMap: { [key: string]: [number, number, number] } = {
-      '1': [1.0, 0.3, 0.3], // 红色
-      '2': [0.3, 1.0, 0.3], // 绿色
-      '3': [0.3, 0.3, 1.0], // 蓝色
+    // 🎨 分层渲染颜色映射
+    // 背景层：不同亮度的灰色（根据baseType）
+    const backgroundColorMap: { [key: string]: [number, number, number] } = {
+      '1': [0.4, 0.4, 0.4], // 深灰色
+      '2': [0.6, 0.6, 0.6], // 中灰色
+      '3': [0.8, 0.8, 0.8], // 浅灰色
     };
 
+    // 高亮层：鲜明的彩色（根据路径索引）
+    const highlightColorMap: [number, number, number][] = [
+      [1.0, 0.2, 0.2], // 路径0：红色
+      [0.2, 1.0, 0.2], // 路径1：绿色
+      [0.2, 0.2, 1.0], // 路径2：蓝色
+      [1.0, 1.0, 0.2], // 路径3：黄色
+      [1.0, 0.2, 1.0], // 路径4：紫色
+      [0.2, 1.0, 1.0], // 路径5：青色
+    ];
+
     // 统计颜色分布
-    const colorStats: { [key: string]: number } = {};
+    const colorStats: { [key: string]: number } = { background: 0, highlight: 0 };
 
     for (let i = 0; i < points.length; i++) {
       const point = points[i];
@@ -233,15 +244,24 @@ export class SimpleWebGLRenderer {
       positions[i * 2] = point.re;
       positions[i * 2 + 1] = point.im;
 
-      // 颜色
-      const baseType = point.baseType || 'unknown';
-      const color = colorMap[baseType] || [0.7, 0.7, 0.7];
+      // 🎨 分层渲染颜色逻辑
+      let color: [number, number, number];
+      
+      if (point.highlightGroup === -1) {
+        // 背景层：根据baseType显示不同亮度的灰色
+        const baseType = point.baseType || '1';
+        color = backgroundColorMap[baseType] || [0.5, 0.5, 0.5];
+        colorStats.background++;
+      } else {
+        // 高亮层：根据highlightGroup显示鲜明彩色
+        const groupIndex = point.highlightGroup % highlightColorMap.length;
+        color = highlightColorMap[groupIndex];
+        colorStats.highlight++;
+      }
+
       colors[i * 3] = color[0];
       colors[i * 3 + 1] = color[1];
       colors[i * 3 + 2] = color[2];
-
-      // 统计
-      colorStats[baseType] = (colorStats[baseType] || 0) + 1;
     }
 
     console.log('🎨 颜色分布:', colorStats);

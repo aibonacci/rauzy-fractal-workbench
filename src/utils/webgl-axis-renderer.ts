@@ -29,7 +29,7 @@ interface AxisSettings {
 // 默认坐标轴设置
 export const DEFAULT_AXIS_SETTINGS: AxisSettings = {
   showAxes: true,
-  showLabels: true,
+  showLabels: false,  // 默认不显示数值标签
   showGrid: false,
   axisColor: [1.0, 1.0, 1.0],      // 白色
   gridColor: [0.3, 0.3, 0.3],      // 深灰色

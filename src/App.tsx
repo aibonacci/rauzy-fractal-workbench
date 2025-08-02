@@ -368,26 +368,38 @@ const App: React.FC = () => {
     }
   }, [appState.pathsData]);
 
-  // 生成渲染点数据
+  // 🎨 生成渲染点集（覆盖模式，参考正确实现）
   const renderedPoints = useMemo((): RenderPoint[] => {
     if (!appState.baseData) return [];
-
-    const points: RenderPoint[] = appState.baseData.pointsWithBaseType.map(p => ({
-      ...p,
-      highlightGroup: -1
+    
+    // 1. 先创建所有背景点（highlightGroup = -1）
+    const points: RenderPoint[] = appState.baseData.pointsWithBaseType.map(p => ({ 
+      ...p, 
+      highlightGroup: -1 
     }));
-
-    // 为每条路径的点设置高亮组
+    
+    console.log(`🎭 创建背景点集: ${points.length} 个点 (覆盖模式)`);
+    
+    // 2. 用路径高亮覆盖对应的背景点
     appState.pathsData.forEach((data, pathIndex) => {
-      if (data.sequence && data.sequence.length > 0) {
-        data.sequence.forEach(pos => {
-          if (pos > 0 && pos <= points.length) {
-            points[pos - 1].highlightGroup = pathIndex;
+      if (data && data.sequence) {
+        console.log(`🎯 处理路径 ${pathIndex}: [${data.path.join(',')}], 序列长度: ${data.sequence.length}`);
+        
+        const highlightIndices = new Set(data.sequence.map(pos => pos - 1)); // base-1转base-0
+        let highlightCount = 0;
+        
+        highlightIndices.forEach(index => {
+          if (index >= 0 && index < points.length) {
+            points[index].highlightGroup = pathIndex; // 覆盖背景点
+            highlightCount++;
           }
         });
+        
+        console.log(`  -> 高亮了 ${highlightCount} 个点`);
       }
     });
-
+    
+    console.log(`🎨 渲染点集生成完成: 总计${points.length}个点`);
     return points;
   }, [appState.baseData, appState.pathsData]);
 

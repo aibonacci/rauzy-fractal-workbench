@@ -249,6 +249,157 @@ export class AgentOperationHelper {
     }
   }
 
+  // ========== 坐标轴控制方法 ==========
+
+  /**
+   * 控制坐标轴显示
+   * @param show 是否显示坐标轴
+   * @returns Promise<boolean> 操作是否成功
+   */
+  static async toggleAxes(show: boolean): Promise<boolean> {
+    try {
+      const checkbox = document.querySelector('[data-testid="show-axes-checkbox"]') as HTMLInputElement;
+      if (!checkbox) {
+        console.error('坐标轴复选框未找到');
+        return false;
+      }
+
+      if (checkbox.checked !== show) {
+        checkbox.checked = show;
+        checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+        
+        // 等待一小段时间让变更生效
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      console.log(`🎯 坐标轴显示已${show ? '开启' : '关闭'}`);
+      return true;
+    } catch (error) {
+      console.error('切换坐标轴显示失败:', error);
+      return false;
+    }
+  }
+
+  /**
+   * 控制标签显示
+   * @param show 是否显示标签
+   * @returns Promise<boolean> 操作是否成功
+   */
+  static async toggleLabels(show: boolean): Promise<boolean> {
+    try {
+      const checkbox = document.querySelector('[data-testid="show-labels-checkbox"]') as HTMLInputElement;
+      if (!checkbox) {
+        console.error('标签复选框未找到');
+        return false;
+      }
+
+      if (checkbox.checked !== show) {
+        checkbox.checked = show;
+        checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+        
+        // 等待一小段时间让变更生效
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      console.log(`🎯 坐标轴标签已${show ? '开启' : '关闭'}`);
+      return true;
+    } catch (error) {
+      console.error('切换标签显示失败:', error);
+      return false;
+    }
+  }
+
+  /**
+   * 控制网格显示
+   * @param show 是否显示网格
+   * @returns Promise<boolean> 操作是否成功
+   */
+  static async toggleGrid(show: boolean): Promise<boolean> {
+    try {
+      const checkbox = document.querySelector('[data-testid="show-grid-checkbox"]') as HTMLInputElement;
+      if (!checkbox) {
+        console.error('网格复选框未找到');
+        return false;
+      }
+
+      if (checkbox.checked !== show) {
+        checkbox.checked = show;
+        checkbox.dispatchEvent(new Event('change', { bubbles: true }));
+        
+        // 等待一小段时间让变更生效
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+
+      console.log(`🎯 网格线已${show ? '开启' : '关闭'}`);
+      return true;
+    } catch (error) {
+      console.error('切换网格显示失败:', error);
+      return false;
+    }
+  }
+
+  /**
+   * 获取当前坐标轴设置
+   * @returns object | null 当前坐标轴设置
+   */
+  static getCurrentAxisSettings(): { showAxes: boolean; showLabels: boolean; showGrid: boolean } | null {
+    try {
+      const axesCheckbox = document.querySelector('[data-testid="show-axes-checkbox"]') as HTMLInputElement;
+      const labelsCheckbox = document.querySelector('[data-testid="show-labels-checkbox"]') as HTMLInputElement;
+      const gridCheckbox = document.querySelector('[data-testid="show-grid-checkbox"]') as HTMLInputElement;
+
+      if (!axesCheckbox || !labelsCheckbox || !gridCheckbox) {
+        console.error('坐标轴控件未找到');
+        return null;
+      }
+
+      return {
+        showAxes: axesCheckbox.checked,
+        showLabels: labelsCheckbox.checked,
+        showGrid: gridCheckbox.checked
+      };
+    } catch (error) {
+      console.error('获取坐标轴设置失败:', error);
+      return null;
+    }
+  }
+
+  /**
+   * 批量设置坐标轴选项
+   * @param settings 坐标轴设置
+   * @returns Promise<boolean> 操作是否成功
+   */
+  static async setAxisSettings(settings: {
+    showAxes?: boolean;
+    showLabels?: boolean;
+    showGrid?: boolean;
+  }): Promise<boolean> {
+    try {
+      let success = true;
+
+      if (settings.showAxes !== undefined) {
+        success = success && await this.toggleAxes(settings.showAxes);
+      }
+
+      if (settings.showLabels !== undefined) {
+        success = success && await this.toggleLabels(settings.showLabels);
+      }
+
+      if (settings.showGrid !== undefined) {
+        success = success && await this.toggleGrid(settings.showGrid);
+      }
+
+      if (success) {
+        console.log('🎯 坐标轴设置批量更新成功:', settings);
+      }
+
+      return success;
+    } catch (error) {
+      console.error('批量设置坐标轴失败:', error);
+      return false;
+    }
+  }
+
   /**
    * 等待特定数量的路径被添加
    * @param expectedCount 期望的路径数量

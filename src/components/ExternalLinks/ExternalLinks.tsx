@@ -1,42 +1,37 @@
 import React from 'react';
 import { AcademicCapIcon, CodeBracketIcon } from '@heroicons/react/24/outline';
 import { useI18n } from '../../i18n/context';
+import { useConfig } from '../../config/ConfigContext';
 
 interface ExternalLinksProps {
   className?: string;
 }
 
-// External links configuration
-const EXTERNAL_LINKS = {
-  LIU_THEOREM: {
-    url: 'https://placeholder-liu-theorem.com', // 占位符链接
-    icon: AcademicCapIcon,
-    target: '_blank' as const,
-    rel: 'noopener noreferrer' as const
-  },
-  GITHUB: {
-    url: 'https://github.com/your-username/rauzy-fractal-workbench',
-    icon: CodeBracketIcon,
-    target: '_blank' as const,
-    rel: 'noopener noreferrer' as const
-  }
-} as const;
+// Icon mapping for configuration
+const ICON_MAP = {
+  AcademicCapIcon,
+  CodeBracketIcon
+};
 
 const ExternalLinks: React.FC<ExternalLinksProps> = ({ className = '' }) => {
   const { t } = useI18n();
+  const { config } = useConfig();
+  
+  const LiuTheoremIcon = ICON_MAP[config.ui.external.links.liuTheorem.icon as keyof typeof ICON_MAP];
+  const GitHubIcon = ICON_MAP[config.ui.external.links.github.icon as keyof typeof ICON_MAP];
 
   return (
     <div className={`flex gap-2 ${className}`}>
       {/* Liu's Theorem Link */}
       <a
-        href={EXTERNAL_LINKS.LIU_THEOREM.url}
-        target={EXTERNAL_LINKS.LIU_THEOREM.target}
-        rel={EXTERNAL_LINKS.LIU_THEOREM.rel}
+        href={config.ui.external.links.liuTheorem.url}
+        target={config.ui.external.links.liuTheorem.target}
+        rel={config.ui.external.links.liuTheorem.rel}
         className="icon-button group relative"
         title={t('links.liuTheoremTooltip')}
         aria-label={t('links.liuTheorem')}
       >
-        <EXTERNAL_LINKS.LIU_THEOREM.icon 
+        <LiuTheoremIcon 
           className="w-full h-full transition-transform duration-200 group-hover:scale-110" 
           aria-hidden="true"
         />
@@ -50,14 +45,14 @@ const ExternalLinks: React.FC<ExternalLinksProps> = ({ className = '' }) => {
 
       {/* GitHub Repository Link */}
       <a
-        href={EXTERNAL_LINKS.GITHUB.url}
-        target={EXTERNAL_LINKS.GITHUB.target}
-        rel={EXTERNAL_LINKS.GITHUB.rel}
+        href={config.ui.external.links.github.url}
+        target={config.ui.external.links.github.target}
+        rel={config.ui.external.links.github.rel}
         className="icon-button group relative"
         title={t('links.githubTooltip')}
         aria-label={t('links.github')}
       >
-        <EXTERNAL_LINKS.GITHUB.icon 
+        <GitHubIcon 
           className="w-full h-full transition-transform duration-200 group-hover:scale-110" 
           aria-hidden="true"
         />

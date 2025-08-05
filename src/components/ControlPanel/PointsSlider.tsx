@@ -1,7 +1,8 @@
 import React, { useCallback, useRef, useEffect } from 'react';
-import { APP_CONFIG, TEST_IDS } from '../../utils/constants';
 import { debounce } from '../../utils/debounce';
+import { formatPointCount } from '../../utils';
 import { useI18n } from '../../i18n/context';
+import { useConfig } from '../../config/ConfigContext';
 
 interface PointsSliderProps {
   value: number;
@@ -17,6 +18,7 @@ const PointsSlider: React.FC<PointsSliderProps> = ({
   formatPointCount
 }) => {
   const { t } = useI18n();
+  const { config } = useConfig();
   const [displayValue, setDisplayValue] = React.useState(value);
   const isDragging = useRef(false);
   
@@ -24,8 +26,8 @@ const PointsSlider: React.FC<PointsSliderProps> = ({
   const debouncedOnChange = useCallback(
     debounce((newValue: number) => {
       onChange(newValue);
-    }, 500), // 500ms延迟
-    [onChange]
+    }, config.ui.animations.debounceDelay),
+    [onChange, config.ui.animations.debounceDelay]
   );
 
   // 清理防抖函数
@@ -98,11 +100,11 @@ const PointsSlider: React.FC<PointsSliderProps> = ({
         
         <input
           id="points-slider"
-          data-testid={TEST_IDS.POINTS_SLIDER}
+          data-testid={config.development.testIds.pointsSlider}
           type="range"
-          min={APP_CONFIG.MIN_POINTS}
-          max={APP_CONFIG.MAX_POINTS}
-          step={APP_CONFIG.POINTS_STEP}
+          min={config.app.points.min}
+          max={config.app.points.max}
+          step={config.app.points.step}
           value={displayValue}
           onChange={handleChange}
           onMouseDown={handleMouseDown}
@@ -114,7 +116,10 @@ const PointsSlider: React.FC<PointsSliderProps> = ({
           style={{
             background: disabled 
               ? '#374151' 
-              : `linear-gradient(to right, #EAB308 0%, #EAB308 ${((displayValue - APP_CONFIG.MIN_POINTS) / (APP_CONFIG.MAX_POINTS - APP_CONFIG.MIN_POINTS)) * 100}%, #374151 ${((displayValue - APP_CONFIG.MIN_POINTS) / (APP_CONFIG.MAX_POINTS - APP_CONFIG.MIN_POINTS)) * 100}%, #374151 100%)`
+              : (() => {
+                  const percentage = ((displayValue - config.app.points.min) / (config.app.points.max - config.app.points.min)) * 100;
+                  return `linear-gradient(to right, #EAB308 0%, #EAB308 ${percentage}%, #374151 ${percentage}%, #374151 100%)`;
+                })()
           }}
         />
       </div>
@@ -129,8 +134,8 @@ const PointsSlider: React.FC<PointsSliderProps> = ({
       </div>
       
       <div className="flex justify-between text-xs text-gray-400">
-        <span>{formatPointCount(APP_CONFIG.MIN_POINTS)}</span>
-        <span>{formatPointCount(APP_CONFIG.MAX_POINTS)}</span>
+        <span>{formatPointCount(config.app.points.min)}</span>
+        <span>{formatPointCount(config.app.points.max)}</span>
       </div>
     </div>
   );

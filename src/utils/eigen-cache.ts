@@ -19,7 +19,7 @@ interface EigenDecomposition {
 
 class EigenCache {
   private static cache = new Map<string, EigenDecomposition>();
-  private static readonly CACHE_TTL = 30 * 60 * 1000; // 30分钟缓存
+  private static readonly CACHE_TTL = 30 * 60 * 1000; // 30分钟缓存 - 将从配置系统获取
 
   /**
    * 获取或计算特征值分解
@@ -29,10 +29,11 @@ class EigenCache {
    */
   static getOrCompute(matrixKey: string, matrix: any): EigenDecomposition {
     const math = (window as any).math;
+    const config = this.getConfig();
     
     // 检查缓存
     const cached = this.cache.get(matrixKey);
-    if (cached && Date.now() - cached.timestamp < this.CACHE_TTL) {
+    if (cached && Date.now() - cached.timestamp < config.cacheTTL) {
       console.log('🚀 特征值分解缓存命中，耗时: 0ms');
       return cached;
     }
@@ -109,12 +110,37 @@ class EigenCache {
    * 清理过期缓存
    */
   static cleanup(): void {
+    const config = this.getConfig();
     const now = Date.now();
     for (const [key, value] of this.cache.entries()) {
-      if (now - value.timestamp > this.CACHE_TTL) {
+      if (now - value.timestamp > config.cacheTTL) {
         this.cache.delete(key);
       }
     }
+  }
+
+  /**
+   * 从配置系统获取缓存配置
+   */
+  private static getConfig() {
+    try {
+      // 尝试从全局配置获取
+      const globalConfig = (window as any).__RAUZY_CONFIG__;
+      if (globalConfig?.performance?.cache) {
+        return {
+          cacheTTL: globalConfig.performance.cache.defaultTTL,
+          maxSize: globalConfig.performance.cache.maxSize
+        };
+      }
+    } catch (error) {
+      // 配置系统不可用时使用默认值
+    }
+
+    // 回退到默认值
+    return {
+      cacheTTL: this.CACHE_TTL,
+      maxSize: 100
+    };
   }
 
   /**

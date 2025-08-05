@@ -19,11 +19,18 @@ export interface Translations {
       totalPaths: string;
       colorIndicator: string;
       pathInfo: string;
+      clearAll: string;
     };
     pointsSlider: {
       label: string;
       unit: string;
       dragging: string;
+    };
+    partitionGenerator: {
+      title: string;
+    };
+    pathLengthGenerator: {
+      title: string;
     };
   };
   dataPanel: {
@@ -72,12 +79,23 @@ export interface Translations {
     pointsGenerated: string;
     maxPathsReached: string;
     pathAddedSuccess: string;
+    allPathsCleared: string;
   };
   links: {
     liuTheorem: string;
     github: string;
     liuTheoremTooltip: string;
     githubTooltip: string;
+  };
+  pathLength: {
+    input: {
+      placeholder: string;
+      generateButton: string;
+      generating: string;
+      hint: string;
+      expectedCount: string;
+    };
+    error: string;
   };
   common: {
     delete: string;
@@ -112,33 +130,6 @@ export const LANGUAGE_CONFIG = {
   SUPPORTED_LANGUAGES: ['en', 'zh'] as const
 } as const;
 
-// 外部链接配置常量
-export const EXTERNAL_LINKS = {
-  LIU_THEOREM: {
-    url: 'https://placeholder-liu-theorem.com', // 占位符链接
-    icon: 'AcademicCapIcon',
-    target: '_blank',
-    rel: 'noopener noreferrer'
-  },
-  GITHUB: {
-    url: 'https://github.com/your-username/rauzy-fractal-workbench',
-    icon: 'CodeBracketIcon', 
-    target: '_blank',
-    rel: 'noopener noreferrer'
-  }
-} as const;
+// 外部链接和图标尺寸配置已迁移到配置系统 (src/config/types.ts 和 src/config/defaultConfig.ts)
 
-// 图标按钮尺寸配置
-export const ICON_SIZES = {
-  sm: 'w-6 h-6',
-  md: 'w-8 h-8',
-  lg: 'w-10 h-10'
-} as const;
-
-// 通用UI配置常量
-export const UI_CONFIG = {
-  TRANSITION_DURATION: 200, // 毫秒
-  DEBOUNCE_DELAY: 300, // 毫秒
-  TOAST_DURATION: 3000, // 毫秒
-  ANIMATION_EASING: 'ease-in-out'
-} as const;
+// UI配置常量已迁移到配置系统 (src/config/types.ts 和 src/config/defaultConfig.ts)

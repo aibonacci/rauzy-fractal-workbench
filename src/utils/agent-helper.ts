@@ -1,4 +1,4 @@
-import { TEST_IDS } from './constants';
+import { DEFAULT_DEVELOPMENT_CONFIG } from '../config/defaultConfig';
 import { PathData } from '../types';
 
 /**
@@ -48,7 +48,7 @@ export class AgentOperationHelper {
   static async waitForCalculation(timeout = 30000): Promise<void> {
     return new Promise((resolve, reject) => {
       const checkLoading = () => {
-        const loadingIndicator = document.querySelector(`[data-testid="${TEST_IDS.LOADING_INDICATOR}"]`);
+        const loadingIndicator = document.querySelector(`[data-testid="${DEFAULT_DEVELOPMENT_CONFIG.testIds.loadingIndicator}"]`);
         if (!loadingIndicator) {
           resolve();
           return;
@@ -72,7 +72,7 @@ export class AgentOperationHelper {
   static async addPath(pathString: string): Promise<boolean> {
     try {
       // 获取路径输入框
-      const pathInput = await this.waitForElement(`[data-testid="${TEST_IDS.PATH_INPUT}"]`) as HTMLInputElement;
+      const pathInput = await this.waitForElement(`[data-testid="${DEFAULT_DEVELOPMENT_CONFIG.testIds.pathInput}"]`) as HTMLInputElement;
       
       // 清空并输入新路径
       pathInput.value = '';
@@ -82,7 +82,7 @@ export class AgentOperationHelper {
       pathInput.dispatchEvent(new Event('input', { bubbles: true }));
 
       // 点击添加按钮
-      const addButton = await this.waitForElement(`[data-testid="${TEST_IDS.ADD_PATH_BUTTON}"]`) as HTMLButtonElement;
+      const addButton = await this.waitForElement(`[data-testid="${DEFAULT_DEVELOPMENT_CONFIG.testIds.addPathButton}"]`) as HTMLButtonElement;
       
       if (addButton.disabled) {
         console.warn('Add button is disabled');
@@ -109,7 +109,7 @@ export class AgentOperationHelper {
   static async removePath(pathIndex: number): Promise<boolean> {
     try {
       const deleteButton = await this.waitForElement(
-        `[data-testid="${TEST_IDS.DELETE_PATH_BUTTON}-${pathIndex}"]`
+        `[data-testid="${DEFAULT_DEVELOPMENT_CONFIG.testIds.deletePathButton}-${pathIndex}"]`
       ) as HTMLButtonElement;
 
       deleteButton.click();
@@ -131,7 +131,7 @@ export class AgentOperationHelper {
    */
   static async setPointCount(count: number): Promise<boolean> {
     try {
-      const slider = await this.waitForElement(`[data-testid="${TEST_IDS.POINTS_SLIDER}"]`) as HTMLInputElement;
+      const slider = await this.waitForElement(`[data-testid="${DEFAULT_DEVELOPMENT_CONFIG.testIds.pointsSlider}"]`) as HTMLInputElement;
       
       slider.value = count.toString();
       slider.dispatchEvent(new Event('input', { bubbles: true }));
@@ -154,7 +154,7 @@ export class AgentOperationHelper {
    */
   static getPathData(pathIndex: number): PathData | null {
     try {
-      const pathCard = document.querySelector(`[data-testid="${TEST_IDS.PATH_DATA_CARD}-${pathIndex}"]`);
+      const pathCard = document.querySelector(`[data-testid="${DEFAULT_DEVELOPMENT_CONFIG.testIds.pathDataCard}-${pathIndex}"]`);
       if (!pathCard) return null;
 
       // 从DOM中提取路径数据（这是一个简化的实现）
@@ -187,7 +187,7 @@ export class AgentOperationHelper {
    */
   static getCanvasImageData(): ImageData | null {
     try {
-      const canvas = document.querySelector(`[data-testid="${TEST_IDS.FRACTAL_CANVAS}"]`) as HTMLCanvasElement;
+      const canvas = document.querySelector(`[data-testid="${DEFAULT_DEVELOPMENT_CONFIG.testIds.fractalCanvas}"]`) as HTMLCanvasElement;
       if (!canvas) return null;
 
       const ctx = canvas.getContext('2d');
@@ -206,7 +206,7 @@ export class AgentOperationHelper {
    */
   static getCurrentPaths(): string[] {
     try {
-      const pathItems = document.querySelectorAll(`[data-testid^="${TEST_IDS.PATH_ITEM}"]`);
+      const pathItems = document.querySelectorAll(`[data-testid^="${DEFAULT_DEVELOPMENT_CONFIG.testIds.pathItem}"]`);
       const paths: string[] = [];
 
       pathItems.forEach(item => {
@@ -231,7 +231,7 @@ export class AgentOperationHelper {
    * @returns boolean
    */
   static isLoading(): boolean {
-    const loadingIndicator = document.querySelector(`[data-testid="${TEST_IDS.LOADING_INDICATOR}"]`);
+    const loadingIndicator = document.querySelector(`[data-testid="${DEFAULT_DEVELOPMENT_CONFIG.testIds.loadingIndicator}"]`);
     return loadingIndicator !== null;
   }
 
@@ -241,7 +241,7 @@ export class AgentOperationHelper {
    */
   static getCurrentPointCount(): number | null {
     try {
-      const slider = document.querySelector(`[data-testid="${TEST_IDS.POINTS_SLIDER}"]`) as HTMLInputElement;
+      const slider = document.querySelector(`[data-testid="${DEFAULT_DEVELOPMENT_CONFIG.testIds.pointsSlider}"]`) as HTMLInputElement;
       return slider ? parseInt(slider.value) : null;
     } catch (error) {
       console.error('Failed to get current point count:', error);

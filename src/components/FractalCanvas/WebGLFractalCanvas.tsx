@@ -8,7 +8,7 @@ import { FractalCanvasProps } from '../../types';
 import { EnhancedWebGLRenderer } from '../../utils/enhanced-webgl-renderer';
 import { ViewTransform } from '../../utils/simple-webgl-renderer';
 import { AxisSettings, DEFAULT_AXIS_SETTINGS } from '../../utils/webgl-axis-renderer';
-import { TEST_IDS } from '../../utils/constants';
+import { useConfig } from '../../config/ConfigContext';
 import '../../utils/webgl-debug'; // 导入WebGL调试工具
 
 interface WebGLFractalCanvasProps extends FractalCanvasProps {
@@ -27,6 +27,8 @@ const WebGLFractalCanvas: React.FC<WebGLFractalCanvasProps> = ({
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const webglRendererRef = useRef<EnhancedWebGLRenderer | null>(null);
   const [webglSupported, setWebglSupported] = useState(true);
+  const { config } = useConfig();
+  const [showBackground, setShowBackground] = useState(true);
   const [renderStats, setRenderStats] = useState({
     pointCount: 0,
     renderTime: 0,
@@ -39,6 +41,7 @@ const WebGLFractalCanvas: React.FC<WebGLFractalCanvasProps> = ({
 
     try {
       const renderer = new EnhancedWebGLRenderer(canvasRef.current, axisSettings);
+      renderer.setShowBackground(showBackground);
       webglRendererRef.current = renderer;
       setWebglSupported(true);
 
@@ -106,8 +109,20 @@ const WebGLFractalCanvas: React.FC<WebGLFractalCanvasProps> = ({
 
   // 更新点数据并渲染
   useEffect(() => {
-    if (!points || points.length === 0 || isLoading) {
-      console.log('WebGL渲染跳过: 无数据或正在加载');
+    if (isLoading) {
+      console.log('WebGL渲染跳过: 正在加载');
+      return;
+    }
+
+    if (!points || points.length === 0) {
+      console.log('WebGL渲染: 无数据，清空画布');
+      // 清空画布
+      if (webglRendererRef.current && webglSupported) {
+        const gl = (webglRendererRef.current as any).gl as WebGLRenderingContext;
+        if (gl) {
+          gl.clear(gl.COLOR_BUFFER_BIT);
+        }
+      }
       return;
     }
 
@@ -152,9 +167,8 @@ const WebGLFractalCanvas: React.FC<WebGLFractalCanvasProps> = ({
 
   // Canvas 2D回退渲染
   const fallbackToCanvas2D = useCallback(() => {
-    if (!canvasRef.current || !points || points.length === 0) return;
+    if (!canvasRef.current) return;
 
-    const startTime = performance.now();
     const canvas = canvasRef.current;
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -162,9 +176,26 @@ const WebGLFractalCanvas: React.FC<WebGLFractalCanvasProps> = ({
     // 清空画布
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+    if (!points || points.length === 0) {
+      console.log('Canvas 2D: 无数据，画布已清空');
+      return;
+    }
+
+    const startTime = performance.now();
+
+    // 根据背景显示设置过滤点
+    const filteredPoints = showBackground 
+      ? points 
+      : points.filter(p => p.highlightGroup !== -1);
+
+    if (filteredPoints.length === 0) {
+      console.log('Canvas 2D: 过滤后无点数据，画布已清空');
+      return;
+    }
+
     // 计算点的边界
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    points.forEach(p => {
+    filteredPoints.forEach(p => {
       minX = Math.min(minX, p.re);
       maxX = Math.max(maxX, p.re);
       minY = Math.min(minY, p.im);
@@ -179,26 +210,39 @@ const WebGLFractalCanvas: React.FC<WebGLFractalCanvasProps> = ({
     const adjustedMinY = minY - rangeY * padding;
     const adjustedMaxY = maxY + rangeY * padding;
 
-    // 颜色映射
-    const colorMap: { [key: string]: string } = {
-      '1': 'rgba(255, 51, 51, 0.8)',   // 红色
-      '2': 'rgba(51, 255, 51, 0.8)',   // 绿色
-      '3': 'rgba(51, 51, 255, 0.8)',   // 蓝色
+    // 背景颜色映射
+    const backgroundColorMap: { [key: string]: string } = {
+      '1': 'rgba(209, 213, 219, 0.5)',   // 灰色1
+      '2': 'rgba(209, 213, 219, 0.35)',  // 灰色2
+      '3': 'rgba(209, 213, 219, 0.2)',   // 灰色3
     };
 
     // 渲染点 - 移除限制，让Canvas 2D也支持大数据量
-    const maxRenderPoints = points.length; // 移除限制
+    const maxRenderPoints = filteredPoints.length; // 移除限制
     for (let i = 0; i < maxRenderPoints; i++) {
-      const point = points[i];
+      const point = filteredPoints[i];
 
       const x = ((point.re - adjustedMinX) / (adjustedMaxX - adjustedMinX)) * canvas.width;
       const y = ((point.im - adjustedMinY) / (adjustedMaxY - adjustedMinY)) * canvas.height;
 
       if (isNaN(x) || isNaN(y)) continue;
 
-      ctx.fillStyle = colorMap[point.baseType] || 'rgba(128, 128, 128, 0.8)';
+      // 🎨 分层渲染颜色逻辑
+      let color: string;
+      if (point.highlightGroup === -1) {
+        // 背景层：根据baseType显示不同亮度的灰色
+        color = backgroundColorMap[point.baseType] || 'rgba(128, 128, 128, 0.8)';
+      } else {
+        // 高亮层：根据highlightGroup显示鲜明彩色
+        const groupIndex = point.highlightGroup % config.ui.colors.highlight.length;
+        color = config.ui.colors.highlight[groupIndex];
+      }
+
+      ctx.fillStyle = color;
       ctx.beginPath();
-      ctx.arc(x, y, 2, 0, 2 * Math.PI);
+      // 使用配置系统的Canvas2D点半径
+      const pointRadius = config.performance.rendering.canvas2d.pointRadius;
+      ctx.arc(x, y, pointRadius, 0, 2 * Math.PI);
       ctx.fill();
     }
 
@@ -215,7 +259,7 @@ const WebGLFractalCanvas: React.FC<WebGLFractalCanvasProps> = ({
     };
 
     console.log(`🎨 Canvas 2D渲染完成: ${maxRenderPoints}/${points.length} 点, ${renderTime.toFixed(2)}ms`);
-  }, [points]);
+  }, [points, showBackground]);
 
   // 重置视图
   const resetView = useCallback(() => {
@@ -242,12 +286,24 @@ const WebGLFractalCanvas: React.FC<WebGLFractalCanvasProps> = ({
     }
   }, [onViewChange]);
 
+  // 切换背景显示
+  const toggleBackground = useCallback(() => {
+    const newShowBackground = !showBackground;
+    setShowBackground(newShowBackground);
+    
+    if (webglRendererRef.current) {
+      webglRendererRef.current.setShowBackground(newShowBackground);
+    }
+    
+    console.log(`🎨 背景显示: ${newShowBackground ? '开启' : '关闭'}`);
+  }, [showBackground]);
+
   return (
     <div className="relative w-full h-full bg-gray-900">
       <canvas
         ref={canvasRef}
         className="w-full h-full"
-        data-testid={TEST_IDS.FRACTAL_CANVAS}
+        data-testid={config.development.testIds.fractalCanvas}
         style={{
           imageRendering: 'pixelated',
           cursor: webglSupported ? 'grab' : 'default'
@@ -280,6 +336,17 @@ const WebGLFractalCanvas: React.FC<WebGLFractalCanvasProps> = ({
             title="重置视图"
           >
             🔄 重置
+          </button>
+          <button
+            onClick={toggleBackground}
+            className={`px-3 py-1 rounded text-xs transition-colors ${
+              showBackground 
+                ? 'bg-blue-600 bg-opacity-90 text-white hover:bg-blue-700' 
+                : 'bg-gray-600 bg-opacity-90 text-gray-300 hover:bg-gray-700'
+            }`}
+            title={showBackground ? "隐藏背景" : "显示背景"}
+          >
+            {showBackground ? '🌟 背景' : '⭐ 背景'}
           </button>
         </div>
       )}

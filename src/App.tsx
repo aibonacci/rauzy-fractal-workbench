@@ -15,14 +15,17 @@ import {
 import { executeOptimizedRauzyCoreAlgorithm } from './utils/rauzy-core-optimized';
 import { dispatchStateChange } from './utils/event-system';
 import { BaseData, PathData, RenderPoint, AppState } from './types';
-import { APP_CONFIG } from './utils/constants';
 import { useI18n } from './i18n/context';
+import { useConfig } from './config/ConfigContext';
 import { AxisSettings, DEFAULT_AXIS_SETTINGS } from './utils/webgl-axis-renderer';
 import './utils/performance-test'; // 导入性能测试工具
 
 const App: React.FC = () => {
   // 国际化
   const { t } = useI18n();
+  
+  // 配置系统
+  const { config } = useConfig();
   
   // 通知系统
   const {
@@ -44,7 +47,7 @@ const App: React.FC = () => {
 
   // 应用状态
   const [appState, setAppState] = useState<AppState>({
-    numPoints: APP_CONFIG.DEFAULT_POINTS,
+    numPoints: config.app.points.default,
     pathInput: '',
     inputError: '',
     baseData: null,
@@ -307,10 +310,10 @@ const App: React.FC = () => {
       return;
     }
 
-    if (appState.pathsData.length >= APP_CONFIG.MAX_PATHS) {
+    if (appState.pathsData.length >= config.app.paths.maxCount) {
       setAppState(prev => ({
         ...prev,
-        inputError: t('notifications.maxPathsReached', { maxPaths: APP_CONFIG.MAX_PATHS.toString() })
+        inputError: t('notifications.maxPathsReached', { maxPaths: config.app.paths.maxCount.toString() })
       }));
       return;
     }
@@ -349,6 +352,71 @@ const App: React.FC = () => {
     }
   }, [appState.pathInput, appState.pathsData, appState.baseData]);
 
+  // 批量添加路径
+  const handleAddPaths = useCallback((paths: number[][]) => {
+    if (!appState.baseData) {
+      showError(t('notifications.baseDataNotReady'));
+      return;
+    }
+
+    let addedCount = 0;
+    let skippedCount = 0;
+    const newPathsData: PathData[] = [];
+    const existingPaths = appState.pathsData.map(p => p.path);
+
+    for (const path of paths) {
+      // 检查重复
+      if (isDuplicatePath(path, [...existingPaths, ...newPathsData.map(p => p.path)])) {
+        skippedCount++;
+        continue;
+      }
+
+      // 检查路径数量限制
+      if (appState.pathsData.length + newPathsData.length >= config.app.paths.maxCount) {
+        skippedCount += paths.length - paths.indexOf(path);
+        break;
+      }
+
+      try {
+        const pathData = calculatePathData(
+          path,
+          appState.baseData.indexMaps,
+          appState.baseData.pointsWithBaseType
+        );
+        newPathsData.push(pathData);
+        addedCount++;
+      } catch (error) {
+        console.error('Error calculating path data for path:', path, error);
+        skippedCount++;
+      }
+    }
+
+    if (newPathsData.length > 0) {
+      setAppState(prev => ({
+        ...prev,
+        pathsData: [...prev.pathsData, ...newPathsData]
+      }));
+
+      // 触发批量路径添加事件
+      dispatchStateChange('PATHS_BATCH_ADDED', {
+        paths: newPathsData.map(p => p.path),
+        addedCount,
+        skippedCount,
+        totalPaths: appState.pathsData.length + newPathsData.length
+      });
+
+      // 显示成功通知
+      if (addedCount > 0) {
+        showSuccess(
+          t('partition.batch.success', { count: addedCount.toString() }),
+          skippedCount > 0 ? t('partition.batch.skipped', { count: skippedCount.toString() }) : undefined
+        );
+      }
+    } else if (skippedCount > 0) {
+      showWarning(t('partition.batch.skipped', { count: skippedCount.toString() }));
+    }
+  }, [appState.baseData, appState.pathsData, showSuccess, showError, showWarning, t]);
+
   // 删除路径
   const handleRemovePath = useCallback((index: number) => {
     const pathToRemove = appState.pathsData[index];
@@ -367,6 +435,24 @@ const App: React.FC = () => {
       });
     }
   }, [appState.pathsData]);
+
+  // 清空所有路径
+  const handleClearAllPaths = useCallback(() => {
+    const pathCount = appState.pathsData.length;
+    
+    setAppState(prev => ({
+      ...prev,
+      pathsData: []
+    }));
+
+    // 触发清空所有路径事件
+    dispatchStateChange('ALL_PATHS_CLEARED', {
+      clearedCount: pathCount
+    });
+
+    // 显示成功通知
+    showInfo(t('notifications.allPathsCleared', { count: pathCount.toString() }));
+  }, [appState.pathsData, showInfo, t]);
 
   // 🎨 生成渲染点集（覆盖模式，参考正确实现）
   const renderedPoints = useMemo((): RenderPoint[] => {
@@ -432,6 +518,8 @@ const App: React.FC = () => {
           onRemovePath={handleRemovePath}
           disabled={isDisabled}
           formatPointCount={formatPointCount}
+          onAddPaths={handleAddPaths}
+          onClearAllPaths={handleClearAllPaths}
         />
         
         {/* 坐标轴控制面板 */}

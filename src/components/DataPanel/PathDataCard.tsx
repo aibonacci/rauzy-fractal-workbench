@@ -1,7 +1,7 @@
 import React from 'react';
 import { PathData } from '../../types';
-import { HIGHLIGHT_PALETTE, TEST_IDS } from '../../utils/constants';
 import { useI18n } from '../../i18n/context';
+import { useConfig } from '../../config/ConfigContext';
 
 interface PathDataCardProps {
   pathData: PathData;
@@ -10,6 +10,7 @@ interface PathDataCardProps {
 
 const PathDataCard: React.FC<PathDataCardProps> = ({ pathData, index }) => {
   const { t } = useI18n();
+  const { config } = useConfig();
   const formatCoordinate = (coord: { re: number; im: number } | null): string => {
     if (!coord) return 'N/A';
     return `(${coord.re.toFixed(4)}, ${coord.im.toFixed(4)})`;
@@ -25,13 +26,13 @@ const PathDataCard: React.FC<PathDataCardProps> = ({ pathData, index }) => {
   return (
     <div 
       className="bg-gray-700 p-2 rounded-lg hover:bg-gray-650 transition-colors"
-      data-testid={`${TEST_IDS.PATH_DATA_CARD}-${index}`}
+      data-testid={`${config.development.testIds.pathDataCard}-${index}`}
     >
       {/* 路径标题 */}
       <div className="flex items-center gap-2 mb-2">
         <span
           style={{
-            backgroundColor: HIGHLIGHT_PALETTE[index % HIGHLIGHT_PALETTE.length]
+            backgroundColor: config.ui.colors.highlight[index % config.ui.colors.highlight.length]
           }}
           className="w-3 h-3 rounded-full flex-shrink-0"
           title={t('dataPanel.pathCard.colorIndicator')}

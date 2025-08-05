@@ -15,7 +15,7 @@ interface IncrementalCacheEntry {
 
 class IncrementalPointCache {
   private static cache = new Map<string, IncrementalCacheEntry>();
-  private static readonly CACHE_TTL = 10 * 60 * 1000; // 10分钟缓存
+  private static readonly CACHE_TTL = 10 * 60 * 1000; // 10分钟缓存 - 将从配置系统获取
 
   /**
    * 获取缓存的点集数据，支持增量计算
@@ -24,8 +24,9 @@ class IncrementalPointCache {
    * @returns 缓存的数据或null
    */
   static get(cacheKey: string, targetCount: number): BaseData | null {
+    const config = this.getConfig();
     const cached = this.cache.get(cacheKey);
-    if (!cached || Date.now() - cached.timestamp > this.CACHE_TTL) {
+    if (!cached || Date.now() - cached.timestamp > config.cacheTTL) {
       return null;
     }
 
@@ -200,12 +201,37 @@ class IncrementalPointCache {
    * 清理过期缓存
    */
   static cleanup(): void {
+    const config = this.getConfig();
     const now = Date.now();
     for (const [key, value] of this.cache.entries()) {
-      if (now - value.timestamp > this.CACHE_TTL) {
+      if (now - value.timestamp > config.cacheTTL) {
         this.cache.delete(key);
       }
     }
+  }
+
+  /**
+   * 从配置系统获取缓存配置
+   */
+  private static getConfig() {
+    try {
+      // 尝试从全局配置获取
+      const globalConfig = (window as any).__RAUZY_CONFIG__;
+      if (globalConfig?.performance?.cache) {
+        return {
+          cacheTTL: globalConfig.performance.cache.defaultTTL,
+          maxSize: globalConfig.performance.cache.maxSize
+        };
+      }
+    } catch (error) {
+      // 配置系统不可用时使用默认值
+    }
+
+    // 回退到默认值
+    return {
+      cacheTTL: this.CACHE_TTL,
+      maxSize: 100
+    };
   }
 
   /**

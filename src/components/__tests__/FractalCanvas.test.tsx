@@ -2,6 +2,17 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import FractalCanvas from '../FractalCanvas/FractalCanvas';
 import { RenderPoint } from '../../types';
+import { ConfigProvider } from '../../config/ConfigContext';
+import { DEFAULT_CONFIG } from '../../config/defaultConfig';
+
+// Helper function to render with ConfigProvider
+const renderWithConfig = (component: React.ReactElement) => {
+  return render(
+    <ConfigProvider initialConfig={DEFAULT_CONFIG}>
+      {component}
+    </ConfigProvider>
+  );
+};
 
 // Mock Canvas API
 const mockGetContext = vi.fn();
@@ -48,7 +59,7 @@ describe('FractalCanvas', () => {
   ];
 
   it('应该渲染canvas元素', () => {
-    render(<FractalCanvas points={mockPoints} isLoading={false} />);
+    renderWithConfig(<FractalCanvas points={mockPoints} isLoading={false} />);
     
     const canvas = screen.getByTestId('fractal-canvas');
     expect(canvas).toBeInTheDocument();
@@ -56,35 +67,35 @@ describe('FractalCanvas', () => {
   });
 
   it('应该有正确的CSS类', () => {
-    render(<FractalCanvas points={mockPoints} isLoading={false} />);
+    renderWithConfig(<FractalCanvas points={mockPoints} isLoading={false} />);
     
     const canvas = screen.getByTestId('fractal-canvas');
     expect(canvas).toHaveClass('w-full', 'h-full', 'bg-gray-900', 'rounded-lg');
   });
 
   it('当isLoading为true时不应该绘制', () => {
-    render(<FractalCanvas points={mockPoints} isLoading={true} />);
+    renderWithConfig(<FractalCanvas points={mockPoints} isLoading={true} />);
     
     // 由于isLoading为true，不应该调用绘制方法
     expect(mockClearRect).not.toHaveBeenCalled();
   });
 
   it('当points为空时应该显示等待消息', () => {
-    render(<FractalCanvas points={[]} isLoading={false} />);
+    renderWithConfig(<FractalCanvas points={[]} isLoading={false} />);
     
     // 应该调用getContext来绘制等待消息
     expect(mockGetContext).toHaveBeenCalled();
   });
 
   it('应该处理点数据并绘制', () => {
-    render(<FractalCanvas points={mockPoints} isLoading={false} />);
+    renderWithConfig(<FractalCanvas points={mockPoints} isLoading={false} />);
     
     // 应该调用canvas绘制方法
     expect(mockGetContext).toHaveBeenCalled();
   });
 
   it('应该设置正确的canvas属性', () => {
-    render(<FractalCanvas points={mockPoints} isLoading={false} />);
+    renderWithConfig(<FractalCanvas points={mockPoints} isLoading={false} />);
     
     const canvas = screen.getByTestId('fractal-canvas') as HTMLCanvasElement;
     expect(canvas.style.imageRendering).toBe('pixelated');

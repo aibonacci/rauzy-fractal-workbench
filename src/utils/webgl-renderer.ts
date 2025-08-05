@@ -4,6 +4,7 @@
  */
 
 import { RenderPoint } from '../types';
+import { DEFAULT_UI_CONFIG } from '../config/defaultConfig';
 
 interface ViewTransform {
   scale: number;
@@ -61,6 +62,8 @@ class WebGLRenderer {
     uniform float u_scale;
     uniform vec2 u_offset;
     uniform vec4 u_bounds; // minX, maxX, minY, maxY
+    uniform float u_pointSize;
+    uniform float u_maxPointSize;
     
     varying vec3 v_color;
     
@@ -75,7 +78,7 @@ class WebGLRenderer {
       vec2 transformedPos = normalizedPos * u_scale + u_offset;
       
       gl_Position = vec4(transformedPos, 0, 1);
-      gl_PointSize = max(2.0, u_scale * 3.0); // 根据缩放调整点大小
+      gl_PointSize = max(2.0, min(u_maxPointSize, u_scale * u_pointSize));
       
       v_color = a_color;
     }
@@ -510,15 +513,17 @@ class WebGLRenderer {
       '3': [0.82, 0.84, 0.86], // rgba(209, 213, 219, 0.2) -> RGB
     };
 
-    // 多路径高亮的颜色调色板 - 转换为RGB
-    const HIGHLIGHT_PALETTE: [number, number, number][] = [
-      [0.98, 0.75, 0.14], // #FBBF24 -> RGB
-      [0.97, 0.44, 0.44], // #F87171 -> RGB
-      [0.20, 0.83, 0.60], // #34D399 -> RGB
-      [0.51, 0.55, 0.97], // #818CF8 -> RGB
-      [0.96, 0.45, 0.71], // #F472B6 -> RGB
-      [0.38, 0.65, 0.98], // #60A5FA -> RGB
-    ];
+    // 多路径高亮的颜色调色板 - 从配置转换为RGB
+    const hexToRgb = (hex: string): [number, number, number] => {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      return result ? [
+        parseInt(result[1], 16) / 255,
+        parseInt(result[2], 16) / 255,
+        parseInt(result[3], 16) / 255
+      ] : [0, 0, 0];
+    };
+    
+    const HIGHLIGHT_PALETTE: [number, number, number][] = DEFAULT_UI_CONFIG.colors.highlight.map(hexToRgb);
 
     // 统计颜色分布用于调试
     const colorStats: { [key: string]: number } = {};
@@ -664,11 +669,18 @@ class WebGLRenderer {
     const scaleLocation = gl.getUniformLocation(this.program, 'u_scale');
     const offsetLocation = gl.getUniformLocation(this.program, 'u_offset');
     const boundsLocation = gl.getUniformLocation(this.program, 'u_bounds');
+    const pointSizeLocation = gl.getUniformLocation(this.program, 'u_pointSize');
+    const maxPointSizeLocation = gl.getUniformLocation(this.program, 'u_maxPointSize');
+
+    // 从配置系统获取渲染参数
+    const config = this.getRenderConfig();
 
     if (resolutionLocation) gl.uniform2f(resolutionLocation, this.canvas.width, this.canvas.height);
     if (scaleLocation) gl.uniform1f(scaleLocation, this.transform.scale);
     if (offsetLocation) gl.uniform2f(offsetLocation, this.transform.offsetX, this.transform.offsetY);
     if (boundsLocation) gl.uniform4f(boundsLocation, this.dataBounds.minX, this.dataBounds.maxX, this.dataBounds.minY, this.dataBounds.maxY);
+    if (pointSizeLocation) gl.uniform1f(pointSizeLocation, config.pointSize);
+    if (maxPointSizeLocation) gl.uniform1f(maxPointSizeLocation, config.maxPointSize);
 
     // 设置位置属性
     const positionLocation = gl.getAttribLocation(this.program, 'a_position');
@@ -738,6 +750,28 @@ class WebGLRenderer {
   setTransform(transform: Partial<ViewTransform>): void {
     this.transform = { ...this.transform, ...transform };
     this.render();
+  }
+
+  /**
+   * 从配置系统获取渲染配置
+   */
+  private getRenderConfig() {
+    try {
+      // 尝试从全局配置获取
+      const globalConfig = (window as any).__RAUZY_CONFIG__;
+      if (globalConfig?.performance?.rendering?.webgl) {
+        return globalConfig.performance.rendering.webgl;
+      }
+    } catch (error) {
+      // 配置系统不可用时使用默认值
+    }
+
+    // 回退到默认值
+    return {
+      pointSize: 3.0,
+      maxPointSize: 10.0,
+      lineWidth: 2.0
+    };
   }
 
   dispose(): void {

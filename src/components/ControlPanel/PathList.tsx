@@ -1,7 +1,7 @@
 import React from 'react';
 import { PathData } from '../../types';
-import { HIGHLIGHT_PALETTE, TEST_IDS } from '../../utils/constants';
 import { useI18n } from '../../i18n/context';
+import { useConfig } from '../../config/ConfigContext';
 import DeleteButton from '../DeleteButton/DeleteButton';
 
 interface PathListProps {
@@ -11,12 +11,13 @@ interface PathListProps {
 
 const PathList: React.FC<PathListProps> = ({ pathsData, onRemovePath }) => {
   const { t } = useI18n();
+  const { config } = useConfig();
 
   if (pathsData.length === 0) {
     return (
       <div 
         className="bg-gray-900 p-4 rounded-lg text-center text-gray-500 text-sm"
-        data-testid={TEST_IDS.PATH_LIST}
+        data-testid={config.development.testIds.pathList}
       >
         {t('controls.pathList.empty')}
       </div>
@@ -26,18 +27,18 @@ const PathList: React.FC<PathListProps> = ({ pathsData, onRemovePath }) => {
   return (
     <div 
       className="bg-gray-900 p-2 rounded-lg space-y-2 flex-grow overflow-y-auto"
-      data-testid={TEST_IDS.PATH_LIST}
+      data-testid={config.development.testIds.pathList}
     >
       {pathsData.map((data, index) => (
         <div
           key={`${data.path.join(',')}-${index}`}
           className="flex items-center justify-between bg-gray-700 p-2 rounded hover:bg-gray-600 transition-colors"
-          data-testid={`${TEST_IDS.PATH_ITEM}-${index}`}
+          data-testid={`${config.development.testIds.pathItem}-${index}`}
         >
           <div className="flex items-center gap-2 flex-1 min-w-0">
             <span
               style={{
-                backgroundColor: HIGHLIGHT_PALETTE[index % HIGHLIGHT_PALETTE.length]
+                backgroundColor: config.ui.colors.highlight[index % config.ui.colors.highlight.length]
               }}
               className="w-4 h-4 rounded-full flex-shrink-0"
               title={t('controls.pathList.colorIndicator', { index: (index + 1).toString() })}
@@ -57,7 +58,7 @@ const PathList: React.FC<PathListProps> = ({ pathsData, onRemovePath }) => {
             onClick={() => onRemovePath(index)}
             size="sm"
             className="flex-shrink-0"
-            data-testid={`${TEST_IDS.DELETE_PATH_BUTTON}-${index}`}
+            data-testid={`${config.development.testIds.deletePathButton}-${index}`}
           />
         </div>
       ))}

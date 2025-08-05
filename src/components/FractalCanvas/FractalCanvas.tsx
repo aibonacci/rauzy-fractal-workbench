@@ -1,6 +1,6 @@
 import React, { useRef, useEffect, useCallback, useMemo } from 'react';
 import { FractalCanvasProps } from '../../types';
-import { BASE_COLORS_ALPHA, HIGHLIGHT_PALETTE, AXIS_COLOR, TEST_IDS } from '../../utils/constants';
+import { useConfig } from '../../config/ConfigContext';
 import { CanvasOptimizer, PerformanceMonitor, MemoryManager } from '../../utils/performance';
 
 // 根据点数量动态调整最大渲染点数
@@ -12,6 +12,7 @@ const getMaxRenderPoints = (totalPoints: number): number => {
 const FractalCanvas: React.FC<FractalCanvasProps> = ({ points, isLoading }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const optimizerRef = useRef<CanvasOptimizer>(new CanvasOptimizer());
+  const { config } = useConfig();
 
   // 简化的点数据处理
   const transformedPoints = useMemo(() => {
@@ -106,7 +107,7 @@ const FractalCanvas: React.FC<FractalCanvasProps> = ({ points, isLoading }) => {
     const offsetY = (height - (maxY - minY) * scale) / 2 - minY * scale;
 
     // 绘制坐标轴
-    ctx.strokeStyle = AXIS_COLOR;
+    ctx.strokeStyle = config.ui.colors.axis;
     ctx.lineWidth = 1;
     ctx.beginPath();
     
@@ -161,8 +162,8 @@ const FractalCanvas: React.FC<FractalCanvasProps> = ({ points, isLoading }) => {
       
       const isHighlighted = p.highlightGroup !== -1;
       const color = isHighlighted 
-        ? HIGHLIGHT_PALETTE[p.highlightGroup % HIGHLIGHT_PALETTE.length]
-        : BASE_COLORS_ALPHA[p.baseType];
+        ? config.ui.colors.highlight[p.highlightGroup % config.ui.colors.highlight.length]
+        : config.ui.colors.base[`alpha${p.baseType}` as keyof typeof config.ui.colors.base];
       const size = isHighlighted ? 3 : 1;
       
       if (!pointsByColor[color]) {
@@ -235,7 +236,7 @@ const FractalCanvas: React.FC<FractalCanvasProps> = ({ points, isLoading }) => {
   return (
     <canvas
       ref={canvasRef}
-      data-testid={TEST_IDS.FRACTAL_CANVAS}
+      data-testid={config.development.testIds.fractalCanvas}
       className="w-full h-full bg-gray-900 rounded-lg shadow-inner cursor-crosshair"
       style={{ 
         imageRendering: 'pixelated',

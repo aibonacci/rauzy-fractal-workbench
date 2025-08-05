@@ -17,12 +17,19 @@ export const zh: Translations = {
       deleteTooltip: "删除路径",
       totalPaths: "总路径数: {count}",
       colorIndicator: "路径颜色指示器",
-      pathInfo: "路径: {path}, 权重: {weight}"
+      pathInfo: "路径: {path}, 权重: {weight}",
+      clearAll: "清空所有路径"
     },
     pointsSlider: {
       label: "点数",
       unit: "个点",
       dragging: "拖拽中: {value} 个点"
+    },
+    partitionGenerator: {
+      title: "数字划分生成器"
+    },
+    pathLengthGenerator: {
+      title: "路径长度生成器"
     }
   },
   dataPanel: {
@@ -71,13 +78,58 @@ export const zh: Translations = {
     pathDataCalculationError: "计算路径数据时出错",
     pointsGenerated: "已生成 {count} 个分形点",
     maxPathsReached: "最多只能添加 {maxPaths} 条路径",
-    pathAddedSuccess: "路径 ({path}) 已成功添加到分析列表"
+    pathAddedSuccess: "路径 ({path}) 已成功添加到分析列表",
+    allPathsCleared: "已清空 {count} 条路径"
   },
   links: {
     liuTheorem: "刘氏定理",
     github: "GitHub 仓库",
     liuTheoremTooltip: "了解刘氏定理 (在新标签页打开)",
     githubTooltip: "在 GitHub 上查看源代码 (在新标签页打开)"
+  },
+  partition: {
+    input: {
+      label: "数字划分生成器",
+      placeholder: "输入数字 (1-20)",
+      previewButton: "预览",
+      generateButton: "生成并添加",
+      generating: "生成中...",
+      hint: "生成数字基于{1,2,3}的所有可能划分",
+      emptyError: "请输入数字",
+      formatError: "请输入有效的整数",
+      positiveError: "数字必须为正数",
+      rangeError: "数字必须在1到20之间"
+    },
+    preview: {
+      title: "划分预览",
+      count: "找到 {count} 个划分",
+      selectAll: "全选",
+      selectNone: "全不选",
+      addSelected: "添加选中项 ({count})",
+      collapse: "收起",
+      expand: "展开"
+    },
+    batch: {
+      addAll: "添加所有划分",
+      addSelected: "添加选中项",
+      selectAll: "全选",
+      selectNone: "全不选",
+      clearSelection: "清空选择",
+      progress: "正在添加 {current} / {total}...",
+      success: "成功添加 {count} 个划分",
+      skipped: "跳过 {count} 个重复划分",
+      error: "添加划分失败"
+    }
+  },
+  pathLength: {
+    input: {
+      placeholder: "输入路径长度 (1-10)",
+      generateButton: "生成并添加",
+      generating: "生成中...",
+      hint: "生成指定长度的所有可能路径，使用{1,2,3}",
+      expectedCount: "将生成 {count} 条路径"
+    },
+    error: "生成路径失败"
   },
   common: {
     delete: "删除",

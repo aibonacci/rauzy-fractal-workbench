@@ -64,6 +64,8 @@ export interface ControlPanelProps {
   onRemovePath: (index: number) => void;
   disabled: boolean;
   formatPointCount: (count: number) => string;
+  onAddPaths: (paths: number[][]) => void;
+  onClearAllPaths: () => void;
 }
 
 export interface FractalCanvasProps {

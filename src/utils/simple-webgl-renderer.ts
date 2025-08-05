@@ -4,6 +4,7 @@
  */
 
 import { RenderPoint } from '../types';
+import { DEFAULT_UI_CONFIG } from '../config/defaultConfig';
 
 interface ViewTransform {
   scale: number;
@@ -25,6 +26,9 @@ export class SimpleWebGLRenderer {
   // 数据缓存 - 防止交互时数据丢失
   private lastValidPointCount = 0;
 
+  // 渲染控制
+  private showBackground = true;
+
   // 视图变换
   private transform: ViewTransform = {
     scale: 1.0,
@@ -41,6 +45,7 @@ export class SimpleWebGLRenderer {
     uniform float u_scale;
     uniform vec2 u_offset;
     uniform vec4 u_bounds;
+    uniform float u_pointSize;
     
     varying vec3 v_color;
     
@@ -55,7 +60,7 @@ export class SimpleWebGLRenderer {
       vec2 transformedPos = normalizedPos * u_scale + u_offset;
       
       gl_Position = vec4(transformedPos, 0, 1);
-      gl_PointSize = 3.0; // 固定点大小，不随缩放变化
+      gl_PointSize = u_pointSize;
       
       v_color = a_color;
     }
@@ -180,21 +185,31 @@ export class SimpleWebGLRenderer {
       return;
     }
 
-    this.pointCount = points.length;
+    // 根据背景显示设置过滤点
+    const filteredPoints = this.showBackground 
+      ? points 
+      : points.filter(p => p.highlightGroup !== -1);
 
-    if (points.length === 0) {
-      console.log('⚠️ 接收到空点数据，pointCount重置为0');
+    this.pointCount = filteredPoints.length;
+
+    console.log(`🎨 背景显示: ${this.showBackground ? '开启' : '关闭'}, 渲染点数: ${filteredPoints.length}/${points.length}`);
+
+    if (filteredPoints.length === 0) {
+      console.log('⚠️ 过滤后无点数据，清空画布');
+      // 清空画布而不是直接返回
+      const { gl } = this;
+      gl.clear(gl.COLOR_BUFFER_BIT);
       return;
     }
 
     // 缓存有效的点数
-    this.lastValidPointCount = points.length;
+    this.lastValidPointCount = filteredPoints.length;
 
     const { gl } = this;
 
     // 计算边界
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
-    for (const point of points) {
+    for (const point of filteredPoints) {
       minX = Math.min(minX, point.re);
       maxX = Math.max(maxX, point.re);
       minY = Math.min(minY, point.im);
@@ -213,8 +228,8 @@ export class SimpleWebGLRenderer {
     this.dataBounds = { minX, maxX, minY, maxY };
 
     // 准备数据
-    const positions = new Float32Array(points.length * 2);
-    const colors = new Float32Array(points.length * 3);
+    const positions = new Float32Array(filteredPoints.length * 2);
+    const colors = new Float32Array(filteredPoints.length * 3);
 
     // 🎨 分层渲染颜色映射
     // 背景层：不同亮度的灰色（根据baseType）
@@ -224,21 +239,25 @@ export class SimpleWebGLRenderer {
       '3': [0.8, 0.8, 0.8], // 浅灰色
     };
 
-    // 高亮层：鲜明的彩色（根据路径索引）
-    const highlightColorMap: [number, number, number][] = [
-      [1.0, 0.2, 0.2], // 路径0：红色
-      [0.2, 1.0, 0.2], // 路径1：绿色
-      [0.2, 0.2, 1.0], // 路径2：蓝色
-      [1.0, 1.0, 0.2], // 路径3：黄色
-      [1.0, 0.2, 1.0], // 路径4：紫色
-      [0.2, 1.0, 1.0], // 路径5：青色
-    ];
+    // 将CSS颜色转换为RGB数值的函数
+    const hexToRgb = (hex: string): [number, number, number] => {
+      const result = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex);
+      if (!result) return [1.0, 1.0, 1.0]; // 默认白色
+      return [
+        parseInt(result[1], 16) / 255,
+        parseInt(result[2], 16) / 255,
+        parseInt(result[3], 16) / 255
+      ];
+    };
+
+    // 使用统一的颜色调色板
+    const highlightColorMap: [number, number, number][] = DEFAULT_UI_CONFIG.colors.highlight.map(hexToRgb);
 
     // 统计颜色分布
     const colorStats: { [key: string]: number } = { background: 0, highlight: 0 };
 
-    for (let i = 0; i < points.length; i++) {
-      const point = points[i];
+    for (let i = 0; i < filteredPoints.length; i++) {
+      const point = filteredPoints[i];
 
       // 位置
       positions[i * 2] = point.re;
@@ -307,11 +326,16 @@ export class SimpleWebGLRenderer {
     const scaleLocation = gl.getUniformLocation(this.program, 'u_scale');
     const offsetLocation = gl.getUniformLocation(this.program, 'u_offset');
     const boundsLocation = gl.getUniformLocation(this.program, 'u_bounds');
+    const pointSizeLocation = gl.getUniformLocation(this.program, 'u_pointSize');
+
+    // 从配置系统获取渲染参数
+    const config = this.getRenderConfig();
 
     if (resolutionLocation) gl.uniform2f(resolutionLocation, this.canvas.width, this.canvas.height);
     if (scaleLocation) gl.uniform1f(scaleLocation, this.transform.scale);
     if (offsetLocation) gl.uniform2f(offsetLocation, this.transform.offsetX, this.transform.offsetY);
     if (boundsLocation) gl.uniform4f(boundsLocation, this.dataBounds.minX, this.dataBounds.maxX, this.dataBounds.minY, this.dataBounds.maxY);
+    if (pointSizeLocation) gl.uniform1f(pointSizeLocation, config.pointSize);
 
     // 设置位置属性
     const positionLocation = gl.getAttribLocation(this.program, 'a_position');
@@ -432,6 +456,43 @@ export class SimpleWebGLRenderer {
   setTransform(transform: Partial<ViewTransform>): void {
     this.transform = { ...this.transform, ...transform };
     this.render();
+  }
+
+  /**
+   * 设置是否显示背景
+   */
+  setShowBackground(show: boolean): void {
+    this.showBackground = show;
+    this.render();
+  }
+
+  /**
+   * 获取背景显示状态
+   */
+  getShowBackground(): boolean {
+    return this.showBackground;
+  }
+
+  /**
+   * 从配置系统获取渲染配置
+   */
+  private getRenderConfig() {
+    try {
+      // 尝试从全局配置获取
+      const globalConfig = (window as any).__RAUZY_CONFIG__;
+      if (globalConfig?.performance?.rendering?.webgl) {
+        return globalConfig.performance.rendering.webgl;
+      }
+    } catch (error) {
+      // 配置系统不可用时使用默认值
+    }
+
+    // 回退到默认值
+    return {
+      pointSize: 3.0,
+      maxPointSize: 10.0,
+      lineWidth: 2.0
+    };
   }
 
   dispose(): void {

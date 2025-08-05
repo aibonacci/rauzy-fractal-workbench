@@ -200,8 +200,8 @@ export class CanvasOptimizer {
  */
 export class ComputationCache {
   private static cache = new Map<string, { data: any; timestamp: number; ttl: number }>();
-  private static maxSize = 100; // 最大缓存条目数
-  private static defaultTTL = 5 * 60 * 1000; // 5分钟默认TTL
+  private static maxSize = 100; // 最大缓存条目数 - 将从配置系统获取
+  private static defaultTTL = 5 * 60 * 1000; // 5分钟默认TTL - 将从配置系统获取
 
   /**
    * 设置缓存
@@ -209,9 +209,14 @@ export class ComputationCache {
    * @param data 数据
    * @param ttl 生存时间（毫秒）
    */
-  static set(key: string, data: any, ttl: number = this.defaultTTL): void {
+  static set(key: string, data: any, ttl?: number): void {
+    // 从配置系统获取缓存设置
+    const config = this.getConfig();
+    const effectiveTTL = ttl ?? config.defaultTTL;
+    const maxSize = config.maxSize;
+
     // 如果缓存已满，删除最旧的条目
-    if (this.cache.size >= this.maxSize) {
+    if (this.cache.size >= maxSize) {
       const oldestKey = Array.from(this.cache.keys())[0];
       this.cache.delete(oldestKey);
     }
@@ -219,7 +224,7 @@ export class ComputationCache {
     this.cache.set(key, {
       data,
       timestamp: Date.now(),
-      ttl
+      ttl: effectiveTTL
     });
   }
 
@@ -276,9 +281,31 @@ export class ComputationCache {
    * 获取缓存统计信息
    */
   static getStats(): { size: number; maxSize: number; hitRate?: number } {
+    const config = this.getConfig();
     return {
       size: this.cache.size,
-      maxSize: this.maxSize
+      maxSize: config.maxSize
+    };
+  }
+
+  /**
+   * 从配置系统获取缓存配置
+   */
+  private static getConfig() {
+    try {
+      // 尝试从全局配置获取
+      const globalConfig = (window as any).__RAUZY_CONFIG__;
+      if (globalConfig?.performance?.cache) {
+        return globalConfig.performance.cache;
+      }
+    } catch (error) {
+      // 配置系统不可用时使用默认值
+    }
+
+    // 回退到默认值
+    return {
+      maxSize: this.maxSize,
+      defaultTTL: this.defaultTTL
     };
   }
 }

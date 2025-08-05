@@ -67,7 +67,9 @@ class PerformanceTestSuite {
     const endMemory = this.getMemoryUsage();
     const duration = endTime - startTime;
     
-    const cacheHit = duration < 50; // 如果耗时小于50ms，认为是缓存命中
+    // 从配置系统获取性能阈值
+    const config = this.getPerformanceConfig();
+    const cacheHit = duration < config.fastThreshold; // 如果耗时小于快速阈值，认为是缓存命中
     
     this.results.push({
       testName,
@@ -195,6 +197,33 @@ class PerformanceTestSuite {
     console.log(`首次计算 10K: ${time1.toFixed(2)}ms`);
     console.log(`缓存命中 10K: ${time2.toFixed(2)}ms (${(time1/time2).toFixed(1)}x 提升)`);
     console.log(`增量计算 15K: ${time3.toFixed(2)}ms`);
+  }
+
+  /**
+   * 从配置系统获取性能配置
+   */
+  private getPerformanceConfig() {
+    try {
+      // 尝试从全局配置获取
+      const globalConfig = (window as any).__RAUZY_CONFIG__;
+      if (globalConfig?.performance?.performance?.benchmarkThresholds) {
+        const thresholds = globalConfig.performance.performance.benchmarkThresholds;
+        return {
+          fastThreshold: thresholds.fast,
+          mediumThreshold: thresholds.medium,
+          slowThreshold: thresholds.slow
+        };
+      }
+    } catch (error) {
+      // 配置系统不可用时使用默认值
+    }
+
+    // 回退到默认值
+    return {
+      fastThreshold: 50,
+      mediumThreshold: 100,
+      slowThreshold: 500
+    };
   }
 
   /**

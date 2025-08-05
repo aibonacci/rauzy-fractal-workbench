@@ -69,7 +69,7 @@ export function calculatePathData(
     indexMaps['1']?.length || 0,
     indexMaps['2']?.length || 0,
     indexMaps['3']?.length || 0
-  ) * 2; // 设置一个合理的上限防止无限循环
+  ) * 3; // 增加上限，给大r值更多生成空间
 
   while (k <= maxIterations) {
     // 安全访问索引映射，使用循环索引避免越界
@@ -96,12 +96,6 @@ export function calculatePathData(
     const pLk = coeffs[1] * W1k + coeffs[2] * W2k + coeffs[3] * W3k;
     const wLk = Math.round(pLk - cl);
 
-    // 边界检查：如果序列项超出Tribonacci词范围，停止生成
-    if (wLk > totalWordLength) {
-      console.log(`📊 路径 [${path.join(',')}] 序列在第${k}项超出边界 (${wLk} > ${totalWordLength})，停止生成`);
-      break;
-    }
-
     // 有效性检查：如果序列项为非正数，根据情况处理
     if (wLk <= 0) {
       if (sequence.length > 0) {
@@ -109,8 +103,16 @@ export function calculatePathData(
         break;
       }
       // 如果还没有有效项，继续尝试
-    } else {
+    } else if (wLk <= totalWordLength) {
+      // 只有当序列项在有效范围内时才添加
       sequence.push(wLk);
+    } else {
+      // 如果序列项超出边界，但我们已经有了一些有效项，就停止
+      if (sequence.length > 0) {
+        console.log(`📊 路径 [${path.join(',')}] 序列在第${k}项超出边界 (${wLk} > ${totalWordLength})，停止生成`);
+        break;
+      }
+      // 如果还没有有效项，继续尝试（可能后面的项会回到有效范围）
     }
 
     k++;

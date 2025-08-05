@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { AgentOperationHelper } from '../agent-helper';
-import { TEST_IDS } from '../constants';
+import { DEFAULT_DEVELOPMENT_CONFIG } from '../../config/defaultConfig';
 
 // Mock DOM elements
 const createMockElement = (tagName: string, attributes: Record<string, any> = {}) => {
@@ -26,13 +26,13 @@ describe('AgentOperationHelper', () => {
         value: '',
         dispatchEvent: vi.fn()
       });
-      pathInput.setAttribute('data-testid', TEST_IDS.PATH_INPUT);
+      pathInput.setAttribute('data-testid', DEFAULT_DEVELOPMENT_CONFIG.testIds.pathInput);
 
       const addButton = createMockElement('button', {
         disabled: false,
         click: vi.fn()
       });
-      addButton.setAttribute('data-testid', TEST_IDS.ADD_PATH_BUTTON);
+      addButton.setAttribute('data-testid', DEFAULT_DEVELOPMENT_CONFIG.testIds.addPathButton);
 
       document.body.appendChild(pathInput);
       document.body.appendChild(addButton);
@@ -47,10 +47,10 @@ describe('AgentOperationHelper', () => {
 
     it('当添加按钮被禁用时应该返回false', async () => {
       const pathInput = createMockElement('input');
-      pathInput.setAttribute('data-testid', TEST_IDS.PATH_INPUT);
+      pathInput.setAttribute('data-testid', DEFAULT_DEVELOPMENT_CONFIG.testIds.pathInput);
 
       const addButton = createMockElement('button', { disabled: true });
-      addButton.setAttribute('data-testid', TEST_IDS.ADD_PATH_BUTTON);
+      addButton.setAttribute('data-testid', DEFAULT_DEVELOPMENT_CONFIG.testIds.addPathButton);
 
       document.body.appendChild(pathInput);
       document.body.appendChild(addButton);
@@ -73,7 +73,7 @@ describe('AgentOperationHelper', () => {
         value: '100000',
         dispatchEvent: vi.fn()
       });
-      slider.setAttribute('data-testid', TEST_IDS.POINTS_SLIDER);
+      slider.setAttribute('data-testid', DEFAULT_DEVELOPMENT_CONFIG.testIds.pointsSlider);
 
       document.body.appendChild(slider);
 
@@ -89,7 +89,7 @@ describe('AgentOperationHelper', () => {
     it('应该能够获取当前路径列表', () => {
       // 创建模拟的路径项
       const pathItem1 = document.createElement('div');
-      pathItem1.setAttribute('data-testid', `${TEST_IDS.PATH_ITEM}-0`);
+      pathItem1.setAttribute('data-testid', `${DEFAULT_DEVELOPMENT_CONFIG.testIds.pathItem}-0`);
       
       const pathSpan1 = document.createElement('span');
       pathSpan1.textContent = '(1,2,3)';
@@ -97,7 +97,7 @@ describe('AgentOperationHelper', () => {
       pathItem1.appendChild(pathSpan1);
 
       const pathItem2 = document.createElement('div');
-      pathItem2.setAttribute('data-testid', `${TEST_IDS.PATH_ITEM}-1`);
+      pathItem2.setAttribute('data-testid', `${DEFAULT_DEVELOPMENT_CONFIG.testIds.pathItem}-1`);
       
       const pathSpan2 = document.createElement('span');
       pathSpan2.textContent = '(2,3,1)';
@@ -121,7 +121,7 @@ describe('AgentOperationHelper', () => {
   describe('isLoading', () => {
     it('当加载指示器存在时应该返回true', () => {
       const loadingIndicator = document.createElement('div');
-      loadingIndicator.setAttribute('data-testid', TEST_IDS.LOADING_INDICATOR);
+      loadingIndicator.setAttribute('data-testid', DEFAULT_DEVELOPMENT_CONFIG.testIds.loadingIndicator);
       document.body.appendChild(loadingIndicator);
 
       expect(AgentOperationHelper.isLoading()).toBe(true);
@@ -138,7 +138,7 @@ describe('AgentOperationHelper', () => {
         type: 'range',
         value: '150000'
       });
-      slider.setAttribute('data-testid', TEST_IDS.POINTS_SLIDER);
+      slider.setAttribute('data-testid', DEFAULT_DEVELOPMENT_CONFIG.testIds.pointsSlider);
       document.body.appendChild(slider);
 
       const pointCount = AgentOperationHelper.getCurrentPointCount();
@@ -162,7 +162,7 @@ describe('AgentOperationHelper', () => {
 
     it('应该等待加载指示器消失', async () => {
       const loadingIndicator = document.createElement('div');
-      loadingIndicator.setAttribute('data-testid', TEST_IDS.LOADING_INDICATOR);
+      loadingIndicator.setAttribute('data-testid', DEFAULT_DEVELOPMENT_CONFIG.testIds.loadingIndicator);
       document.body.appendChild(loadingIndicator);
 
       // 500ms后移除加载指示器

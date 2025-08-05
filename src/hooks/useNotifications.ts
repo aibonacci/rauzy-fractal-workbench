@@ -1,14 +1,16 @@
 import { useState, useCallback } from 'react';
 import { Notification } from '../components/Notification/NotificationSystem';
+import { useConfig } from '../config/ConfigContext';
 
 export const useNotifications = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
+  const { config } = useConfig();
 
   const addNotification = useCallback((notification: Omit<Notification, 'id'>) => {
     const id = Date.now().toString() + Math.random().toString(36).substr(2, 9);
     const newNotification: Notification = {
       id,
-      duration: 3000, // 默认3秒
+      duration: config.ui.notifications.defaultDuration,
       ...notification
     };
 
@@ -30,20 +32,20 @@ export const useNotifications = () => {
 
   // 便捷方法
   const showSuccess = useCallback((title: string, message?: string, duration?: number) => {
-    return addNotification({ type: 'success', title, message, duration: duration ?? 2000 }); // 成功通知默认2秒消失
-  }, [addNotification]);
+    return addNotification({ type: 'success', title, message, duration: duration ?? config.ui.notifications.successDuration });
+  }, [addNotification, config.ui.notifications.successDuration]);
 
   const showError = useCallback((title: string, message?: string, duration?: number) => {
-    return addNotification({ type: 'error', title, message, duration: duration || 0 }); // 错误默认不自动消失
-  }, [addNotification]);
+    return addNotification({ type: 'error', title, message, duration: duration ?? config.ui.notifications.errorDuration });
+  }, [addNotification, config.ui.notifications.errorDuration]);
 
   const showWarning = useCallback((title: string, message?: string, duration?: number) => {
-    return addNotification({ type: 'warning', title, message, duration });
-  }, [addNotification]);
+    return addNotification({ type: 'warning', title, message, duration: duration ?? config.ui.notifications.warningDuration });
+  }, [addNotification, config.ui.notifications.warningDuration]);
 
   const showInfo = useCallback((title: string, message?: string, duration?: number) => {
-    return addNotification({ type: 'info', title, message, duration });
-  }, [addNotification]);
+    return addNotification({ type: 'info', title, message, duration: duration ?? config.ui.notifications.infoDuration });
+  }, [addNotification, config.ui.notifications.infoDuration]);
 
   return {
     notifications,

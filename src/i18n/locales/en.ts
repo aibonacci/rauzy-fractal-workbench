@@ -17,12 +17,19 @@ export const en: Translations = {
             deleteTooltip: "Delete path",
             totalPaths: "Total paths: {count}",
             colorIndicator: "Path color indicator",
-            pathInfo: "Path: {path}, Weight: {weight}"
+            pathInfo: "Path: {path}, Weight: {weight}",
+            clearAll: "Clear all paths"
         },
         pointsSlider: {
             label: "Number of Points",
             unit: "points",
             dragging: "Dragging: {value} points"
+        },
+        partitionGenerator: {
+            title: "Number Partition Generator"
+        },
+        pathLengthGenerator: {
+            title: "Path Length Generator"
         }
     },
     dataPanel: {
@@ -71,13 +78,58 @@ export const en: Translations = {
         pathDataCalculationError: "Error calculating path data",
         pointsGenerated: "Generated {count} fractal points",
         maxPathsReached: "Maximum {maxPaths} paths allowed",
-        pathAddedSuccess: "Path ({path}) successfully added to analysis list"
+        pathAddedSuccess: "Path ({path}) successfully added to analysis list",
+        allPathsCleared: "Cleared {count} paths from the list"
     },
     links: {
         liuTheorem: "Liu's Theorem",
         github: "GitHub Repository",
         liuTheoremTooltip: "Learn about Liu's Theorem (opens in new tab)",
         githubTooltip: "View source code on GitHub (opens in new tab)"
+    },
+    partition: {
+        input: {
+            label: "Number Partition Generator",
+            placeholder: "Enter a number (1-20)",
+            previewButton: "Preview",
+            generateButton: "Generate & Add",
+            generating: "Generating...",
+            hint: "Generate all possible partitions of a number using {1,2,3}",
+            emptyError: "Please enter a number",
+            formatError: "Please enter a valid integer",
+            positiveError: "Number must be positive",
+            rangeError: "Number must be between 1 and 20"
+        },
+        preview: {
+            title: "Partition Preview",
+            count: "{count} partitions found",
+            selectAll: "Select All",
+            selectNone: "Select None",
+            addSelected: "Add Selected ({count})",
+            collapse: "Collapse",
+            expand: "Expand"
+        },
+        batch: {
+            addAll: "Add All Partitions",
+            addSelected: "Add Selected",
+            selectAll: "Select All",
+            selectNone: "Select None",
+            clearSelection: "Clear Selection",
+            progress: "Adding {current} of {total}...",
+            success: "Successfully added {count} partitions",
+            skipped: "Skipped {count} duplicate partitions",
+            error: "Failed to add partitions"
+        }
+    },
+    pathLength: {
+        input: {
+            placeholder: "Enter path length (1-10)",
+            generateButton: "Generate & Add",
+            generating: "Generating...",
+            hint: "Generate all possible paths of specified length using {1,2,3}",
+            expectedCount: "Will generate {count} paths"
+        },
+        error: "Failed to generate paths"
     },
     common: {
         delete: "Delete",

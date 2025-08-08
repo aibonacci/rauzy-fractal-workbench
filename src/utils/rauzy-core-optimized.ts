@@ -51,9 +51,10 @@ function buildOptimizedIndexMaps(word: string, onProgress?: (progress: number, m
   onProgress?.(5, '构建索引映射...');
   
   // 使用与参考代码完全相同的逻辑
-  const indexMaps = { '1': [], '2': [], '3': [] };
+  const indexMaps: Record<'1' | '2' | '3', number[]> = { '1': [], '2': [], '3': [] };
   for (let i = 0; i < word.length; i++) {
-    indexMaps[word[i]].push(i + 1);
+    const c = word[i] as '1' | '2' | '3';
+    indexMaps[c].push(i + 1);
     
     // 进度报告（减少频率以提升性能）
     if (i % 10000 === 0) {
@@ -76,7 +77,7 @@ function computeOptimizedPoints(
   onProgress?: (progress: number, message?: string) => void
 ): BasePoint[] {
   const points: BasePoint[] = new Array(word.length - 1);
-  const abelianVector = { '1': 0, '2': 0, '3': 0 }; // 保持原有格式确保正确性
+  const abelianVector: Record<'1' | '2' | '3', number> = { '1': 0, '2': 0, '3': 0 }; // 保持原有格式确保正确性
   
   onProgress?.(10, '计算点坐标...');
   
@@ -118,12 +119,24 @@ export async function executeOptimizedRauzyCoreAlgorithm(
   shouldCancel?: () => boolean
 ): Promise<BaseData | null> {
   // 检查缓存（保持原有缓存逻辑）
-  const cacheKey = 'rauzy-incremental';
+  const cacheKey = 'rauzy-incremental-v2';
   const eigenKey = 'rauzy-matrix-1-1-1';
   
   const incrementalResult = IncrementalPointCache.get(cacheKey, targetPointCount);
   if (incrementalResult) {
     if (incrementalResult.pointsWithBaseType.length === targetPointCount) {
+      // 规范化：即使是缓存命中，也确保不变式 word.length === target+1
+      let normalizedResult = incrementalResult;
+      if (incrementalResult.word.length !== targetPointCount + 1) {
+        console.warn(`ℹ️ 旧版缓存命中，规范化word长度: ${incrementalResult.word.length} → ${
+          targetPointCount + 1}`);
+        const newWord = generateOptimizedSequence(targetPointCount + 1);
+        normalizedResult = {
+          word: newWord,
+          pointsWithBaseType: incrementalResult.pointsWithBaseType,
+          indexMaps: buildOptimizedIndexMaps(newWord)
+        };
+      }
       const steps = [10, 30, 60, 85, 100];
       const messages = ['读取缓存...', '验证数据...', '准备渲染...', '优化性能...', '缓存命中，计算完成'];
       
@@ -132,7 +145,7 @@ export async function executeOptimizedRauzyCoreAlgorithm(
         await new Promise(resolve => setTimeout(resolve, 20)); // 减少延迟
       }
       
-      return incrementalResult;
+      return normalizedResult;
     }
     
     const result = await IncrementalPointCache.incrementalCompute(
@@ -147,7 +160,7 @@ export async function executeOptimizedRauzyCoreAlgorithm(
     return result;
   }
 
-  const traditionalCacheKey = `rauzy-core-${targetPointCount}`;
+  const traditionalCacheKey = `rauzy-core-v2-${targetPointCount}`;
   const cachedResult = ComputationCache.get(traditionalCacheKey);
   if (cachedResult) {
     const steps = [15, 40, 70, 90, 100];
@@ -182,7 +195,8 @@ export async function executeOptimizedRauzyCoreAlgorithm(
     const { invBasisMatrix } = eigenDecomp;
 
     // 修正的符号序列生成
-    const word = generateOptimizedSequence(targetPointCount, onProgress);
+    // 统一不变式: points.length === targetPointCount, word.length === targetPointCount + 1
+    const word = generateOptimizedSequence(targetPointCount + 1, onProgress);
     
     if (shouldCancel?.()) {
       throw new Error('计算已取消');
@@ -203,6 +217,12 @@ export async function executeOptimizedRauzyCoreAlgorithm(
       pointsWithBaseType,
       indexMaps
     };
+
+    if (word.length !== pointsWithBaseType.length + 1) {
+      console.warn(`⚠️ 不变式失败: word.length=${word.length}, points=${pointsWithBaseType.length}`);
+    } else {
+      console.log(`✅ 不变式通过: word.length=${word.length}, points=${pointsWithBaseType.length}`);
+    }
 
     onProgress?.(95, '完成计算...');
     

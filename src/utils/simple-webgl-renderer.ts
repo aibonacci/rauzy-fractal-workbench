@@ -140,6 +140,23 @@ export class SimpleWebGLRenderer {
     console.log('🚀 简洁WebGL渲染器初始化完成');
   }
 
+  /**
+   * WebGL错误检查
+   */
+  private checkGLError(stage: string): void {
+    const err = this.gl.getError();
+    if (err !== this.gl.NO_ERROR) {
+      console.warn(`⚠️ WebGL getError at ${stage}:`, err);
+    }
+  }
+
+  /**
+   * 判断数值是否为有限数
+   */
+  private isFiniteNumber(n: number): boolean {
+    return Number.isFinite(n) && !Number.isNaN(n);
+  }
+
   private createShader(type: number, source: string): WebGLShader | null {
     const { gl } = this;
     const shader = gl.createShader(type);
@@ -185,14 +202,28 @@ export class SimpleWebGLRenderer {
       return;
     }
 
-    // 根据背景显示设置过滤点
-    const filteredPoints = this.showBackground 
-      ? points 
+    // 根据背景显示设置初步过滤点
+    const backgroundFiltered = this.showBackground
+      ? points
       : points.filter(p => p.highlightGroup !== -1);
+
+    // 二次过滤：剔除非有限坐标（NaN/Infinity）
+    const filteredPoints: RenderPoint[] = [];
+    let invalidCount = 0;
+    for (const p of backgroundFiltered) {
+      if (this.isFiniteNumber(p.re) && this.isFiniteNumber(p.im)) {
+        filteredPoints.push(p);
+      } else {
+        invalidCount++;
+      }
+    }
 
     this.pointCount = filteredPoints.length;
 
-    console.log(`🎨 背景显示: ${this.showBackground ? '开启' : '关闭'}, 渲染点数: ${filteredPoints.length}/${points.length}`);
+    console.log(`🎨 背景显示: ${this.showBackground ? '开启' : '关闭'}, 渲染点数(有效/总/背景后): ${filteredPoints.length}/${points.length}/${backgroundFiltered.length}`);
+    if (invalidCount > 0) {
+      console.warn(`⚠️ 发现无效点(坐标为NaN/Infinity): ${invalidCount} 个，将被忽略`);
+    }
 
     if (filteredPoints.length === 0) {
       console.log('⚠️ 过滤后无点数据，清空画布');
@@ -210,15 +241,35 @@ export class SimpleWebGLRenderer {
     // 计算边界
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     for (const point of filteredPoints) {
+      // 此处filteredPoints保证了坐标为有限数
       minX = Math.min(minX, point.re);
       maxX = Math.max(maxX, point.re);
       minY = Math.min(minY, point.im);
       maxY = Math.max(maxY, point.im);
     }
 
-    // 添加边距
-    const rangeX = maxX - minX;
-    const rangeY = maxY - minY;
+    // 添加边距，且确保范围不为零（否则顶点着色器归一化会除以0）
+    let rangeX = maxX - minX;
+    let rangeY = maxY - minY;
+
+    if (rangeX === 0 || !Number.isFinite(rangeX)) {
+      const cx = (minX + maxX) * 0.5;
+      const epsX = Math.max(1e-6, Math.abs(cx) * 1e-6);
+      minX = cx - epsX;
+      maxX = cx + epsX;
+      rangeX = maxX - minX;
+      console.warn('🛡️ 修正X零跨度边界，已注入epsilon范围:', { minX, maxX, rangeX });
+    }
+
+    if (rangeY === 0 || !Number.isFinite(rangeY)) {
+      const cy = (minY + maxY) * 0.5;
+      const epsY = Math.max(1e-6, Math.abs(cy) * 1e-6);
+      minY = cy - epsY;
+      maxY = cy + epsY;
+      rangeY = maxY - minY;
+      console.warn('🛡️ 修正Y零跨度边界，已注入epsilon范围:', { minY, maxY, rangeY });
+    }
+
     const padding = 0.1;
     minX -= rangeX * padding;
     maxX += rangeX * padding;
@@ -288,12 +339,18 @@ export class SimpleWebGLRenderer {
     // 上传位置数据
     gl.bindBuffer(gl.ARRAY_BUFFER, this.positionBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, positions, gl.STATIC_DRAW);
+    this.checkGLError('bufferData(positions)');
+    const posSize = gl.getBufferParameter(gl.ARRAY_BUFFER, gl.BUFFER_SIZE) as number;
+    console.log(`📦 位置缓冲区大小: ${posSize} 字节 (期望 ${positions.byteLength} 字节)`);
 
     // 上传颜色数据
     gl.bindBuffer(gl.ARRAY_BUFFER, this.colorBuffer);
     gl.bufferData(gl.ARRAY_BUFFER, colors, gl.STATIC_DRAW);
+    this.checkGLError('bufferData(colors)');
+    const colSize = gl.getBufferParameter(gl.ARRAY_BUFFER, gl.BUFFER_SIZE) as number;
+    console.log(`📦 颜色缓冲区大小: ${colSize} 字节 (期望 ${colors.byteLength} 字节)`);
 
-    console.log(`📦 已上传 ${points.length} 个点的数据`);
+    console.log(`📦 已上传有效点数据: ${filteredPoints.length} 个 (原始 ${points.length})`);
   }
 
   render(): void {
@@ -353,8 +410,31 @@ export class SimpleWebGLRenderer {
       gl.vertexAttribPointer(colorLocation, 3, gl.FLOAT, false, 0, 0);
     }
 
+    // 调试属性状态
+    try {
+      if (positionLocation >= 0) {
+        const posEnabled = gl.getVertexAttrib(positionLocation, gl.VERTEX_ATTRIB_ARRAY_ENABLED);
+        const posSizeA = gl.getVertexAttrib(positionLocation, gl.VERTEX_ATTRIB_ARRAY_SIZE);
+        const posType = gl.getVertexAttrib(positionLocation, gl.VERTEX_ATTRIB_ARRAY_TYPE);
+        const posStride = gl.getVertexAttrib(positionLocation, gl.VERTEX_ATTRIB_ARRAY_STRIDE);
+        const posNorm = gl.getVertexAttrib(positionLocation, gl.VERTEX_ATTRIB_ARRAY_NORMALIZED);
+        console.log('🔧 a_position 状态:', { enabled: posEnabled, size: posSizeA, type: posType, stride: posStride, normalized: posNorm });
+      }
+      if (colorLocation >= 0) {
+        const colEnabled = gl.getVertexAttrib(colorLocation, gl.VERTEX_ATTRIB_ARRAY_ENABLED);
+        const colSizeA = gl.getVertexAttrib(colorLocation, gl.VERTEX_ATTRIB_ARRAY_SIZE);
+        const colType = gl.getVertexAttrib(colorLocation, gl.VERTEX_ATTRIB_ARRAY_TYPE);
+        const colStride = gl.getVertexAttrib(colorLocation, gl.VERTEX_ATTRIB_ARRAY_STRIDE);
+        const colNorm = gl.getVertexAttrib(colorLocation, gl.VERTEX_ATTRIB_ARRAY_NORMALIZED);
+        console.log('🔧 a_color 状态:', { enabled: colEnabled, size: colSizeA, type: colType, stride: colStride, normalized: colNorm });
+      }
+    } catch (e) {
+      console.warn('获取属性状态失败:', e);
+    }
+
     // 绘制
     gl.drawArrays(gl.POINTS, 0, effectivePointCount);
+    this.checkGLError('drawArrays(POINTS)');
 
     console.log(`✅ 渲染完成: ${effectivePointCount} 点, 缩放: ${this.transform.scale.toFixed(2)}`);
   }

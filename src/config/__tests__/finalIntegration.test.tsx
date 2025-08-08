@@ -61,7 +61,7 @@ const MainComponent: React.FC = () => {
       <div data-testid="theme-display">{localState.theme}</div>
       <div data-testid="points-min-display">{localState.pointsMin}</div>
       <div data-testid="cache-status">{localState.cacheEnabled ? 'enabled' : 'disabled'}</div>
-      
+
       <div data-testid="config-metadata">
         版本: {config.version}
       </div>
@@ -82,7 +82,7 @@ const ConfigManagerComponent: React.FC<{ configManager: any }> = ({ configManage
 
     updateMetadata();
     const unsubscribe = configManager.subscribe(updateMetadata);
-    
+
     return unsubscribe;
   }, [configManager]);
 
@@ -132,7 +132,7 @@ const ConfigManagerComponent: React.FC<{ configManager: any }> = ({ configManage
       <button data-testid="save-config" onClick={handleSave}>
         保存配置
       </button>
-      
+
       {metadata && (
         <div data-testid="metadata-display">
           <div data-testid="config-version">{metadata.version}</div>
@@ -140,7 +140,7 @@ const ConfigManagerComponent: React.FC<{ configManager: any }> = ({ configManage
           <div data-testid="error-count">{metadata.errorCount}</div>
         </div>
       )}
-      
+
       {errorReports && (
         <div data-testid="error-reports">
           <div data-testid="total-errors">{errorReports.total}</div>
@@ -170,7 +170,7 @@ describe('配置系统最终集成测试', () => {
   beforeEach(() => {
     // Reset all mocks
     vi.clearAllMocks();
-    
+
     // Setup default mock responses
     mockFs.readFile.mockResolvedValue(JSON.stringify(DEFAULT_CONFIG));
     mockFs.writeFile.mockResolvedValue(undefined);
@@ -405,7 +405,7 @@ describe('配置系统最终集成测试', () => {
 
       // 执行大量配置更新
       const startTime = performance.now();
-      
+
       await act(async () => {
         for (let i = 0; i < 100; i++) {
           configManager.set('app.points.min', 100 + i);
@@ -462,7 +462,7 @@ describe('配置系统最终集成测试', () => {
       });
 
       // 添加监听器
-      const unsubscribe = configManager.subscribe(() => {});
+      const unsubscribe = configManager.subscribe(() => { });
       expect(configManager.getListenerCount()).toBe(2); // 组件 + 手动添加的
 
       // 卸载组件

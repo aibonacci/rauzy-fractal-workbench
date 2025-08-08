@@ -4,6 +4,7 @@
  */
 
 import { executeRauzyCoreAlgorithm } from './rauzy-core';
+import { executeOptimizedRauzyCoreAlgorithm } from './rauzy-core-optimized';
 import { EigenCache } from './eigen-cache';
 import { IncrementalPointCache } from './incremental-cache';
 
@@ -52,6 +53,60 @@ class PerformanceTestSuite {
     this.printTestReport();
     
     return this.results;
+  }
+
+  /**
+   * 大点数密度与不变式验证（240k/250k 与 290k/300k）
+   * - 验证 points.length === word.length - 1
+   * - 验证增量前缀一致性：A→B 时，B[0..A-1] 与 A 完全一致
+   */
+  async runDensityValidation(): Promise<void> {
+    console.log('🔍 开始密度验证: [240k→250k], [290k→300k]');
+
+    const validateBaseData = (label: string, data: any, expectedPoints: number) => {
+      const okLen = data && data.pointsWithBaseType?.length === expectedPoints;
+      const okInv = data && data.word?.length === expectedPoints + 1;
+      console.log(`  ${label} 长度校验: points=${data?.pointsWithBaseType?.length}, word=${data?.word?.length} →` +
+        ` ${okLen && okInv ? '✅ OK' : '❌ FAIL'}`);
+      if (!okLen || !okInv) {
+        console.warn(`  不变式失败: word.length=${data?.word?.length}, points=${data?.pointsWithBaseType?.length}`);
+      }
+      return okLen && okInv;
+    };
+
+    const prefixEqual = (a: any, b: any) => {
+      if (!a || !b) return false;
+      if (a.pointsWithBaseType.length > b.pointsWithBaseType.length) return false;
+      for (let i = 0; i < a.pointsWithBaseType.length; i++) {
+        const pa = a.pointsWithBaseType[i];
+        const pb = b.pointsWithBaseType[i];
+        if (pa.re !== pb.re || pa.im !== pb.im || pa.baseType !== pb.baseType) return false;
+      }
+      return true;
+    };
+
+    // 组1: 240k → 250k
+    EigenCache.clear();
+    IncrementalPointCache.clear();
+    let base240 = await executeOptimizedRauzyCoreAlgorithm(240_000);
+    let base250 = await executeOptimizedRauzyCoreAlgorithm(250_000);
+    const ok240 = validateBaseData('240k', base240, 240_000);
+    const ok250 = validateBaseData('250k', base250, 250_000);
+    const pref1 = prefixEqual(base240, base250);
+    console.log(`  前缀一致性 240k→250k: ${pref1 ? '✅ OK' : '❌ FAIL'}`);
+
+    // 组2: 290k → 300k
+    EigenCache.clear();
+    IncrementalPointCache.clear();
+    let base290 = await executeOptimizedRauzyCoreAlgorithm(290_000);
+    let base300 = await executeOptimizedRauzyCoreAlgorithm(300_000);
+    const ok290 = validateBaseData('290k', base290, 290_000);
+    const ok300 = validateBaseData('300k', base300, 300_000);
+    const pref2 = prefixEqual(base290, base300);
+    console.log(`  前缀一致性 290k→300k: ${pref2 ? '✅ OK' : '❌ FAIL'}`);
+
+    const pass = ok240 && ok250 && ok290 && ok300 && pref1 && pref2;
+    console.log(pass ? '🎉 密度验证通过（不变式与前缀一致性成立）' : '⚠️ 密度验证失败，请检查日志');
   }
 
   /**
@@ -237,8 +292,9 @@ class PerformanceTestSuite {
 // 全局性能测试实例
 const performanceTest = new PerformanceTestSuite();
 
-// 暴露到全局对象，方便在浏览器控制台调用
-(window as any).runPerformanceTest = () => performanceTest.runFullSuite();
-(window as any).quickPerformanceTest = () => performanceTest.quickTest();
+ // 暴露到全局对象，方便在浏览器控制台调用
+ (window as any).runPerformanceTest = () => performanceTest.runFullSuite();
+ (window as any).quickPerformanceTest = () => performanceTest.quickTest();
+ (window as any).runDensityValidation = () => performanceTest.runDensityValidation();
 
 export { PerformanceTestSuite, type PerformanceTestResult };

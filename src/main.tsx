@@ -8,6 +8,9 @@ import { createConfigManager } from './config/ConfigManager'
 import { ConfigLoader } from './components/ConfigLoader/ConfigLoader'
 import { ConfigErrorBoundary } from './components/ErrorBoundary/ConfigErrorBoundary'
 
+// 引入性能与密度验证工具（仅产生副作用，暴露到 window）
+import './utils/performance-test'
+
 // 创建配置管理器实例
 const configManager = createConfigManager({
   enableValidation: true,

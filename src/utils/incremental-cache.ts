@@ -32,18 +32,29 @@ class IncrementalPointCache {
 
     const cachedCount = cached.baseData.pointsWithBaseType.length;
     
-    // 如果目标点数小于等于缓存点数，直接截取
+    // 如果目标点数小于等于缓存点数，且缓存为新格式，则直接截取
     if (targetCount <= cachedCount) {
-      console.log(`🚀 增量缓存命中 (截取): ${cachedCount} → ${targetCount} 点，耗时: 0.001ms`);
+      const cachedWordLen = cached.baseData.word.length;
+      if (cachedWordLen !== cachedCount + 1) {
+        console.warn(`ℹ️ 发现旧版缓存格式: cachedWordLen=${cachedWordLen}, cachedPoints=${cachedCount}. 忽略此缓存以避免序列/点数不一致`);
+        return null;
+      }
+      console.log(`🚀 增量缓存命中 (截取): ${cachedCount} → ${targetCount} 点`);
+      const word = cached.baseData.word.substring(0, targetCount + 1);
       return {
-        word: cached.baseData.word.substring(0, targetCount),
+        word,
         pointsWithBaseType: cached.baseData.pointsWithBaseType.slice(0, targetCount),
-        indexMaps: this.rebuildIndexMaps(cached.baseData.word.substring(0, targetCount))
+        indexMaps: this.rebuildIndexMaps(word)
       };
     }
 
     // 如果目标点数大于缓存点数，返回缓存数据用于增量计算
     if (targetCount > cachedCount && targetCount <= cachedCount * 2) {
+      const cachedWordLen = cached.baseData.word.length;
+      if (cachedWordLen !== cachedCount + 1) {
+        console.warn(`ℹ️ 发现旧版缓存格式(增量): cachedWordLen=${cachedWordLen}, cachedPoints=${cachedCount}. 忽略此缓存并全量/重新计算`);
+        return null;
+      }
       console.log(`🔄 增量缓存部分命中: ${cachedCount} → ${targetCount} 点，需增量计算`);
       return cached.baseData;
     }
@@ -88,47 +99,24 @@ class IncrementalPointCache {
     const startCount = cached.pointsWithBaseType.length;
     console.log(`🔄 开始增量计算: ${startCount} → ${targetCount} 点`);
 
-    // 扩展符号序列（分配5%进度）
-    let word = cached.word;
-    while (word.length < targetCount) {
-      if (onProgress) {
-        const progress = 1 + (word.length / targetCount) * 4;
-        onProgress(progress, `扩展符号序列... ${word.length}/${targetCount}`);
-        // 添加小延迟让进度更新可见
-        await new Promise(resolve => setTimeout(resolve, 10));
-      }
-
-      let nextWord = "";
-      for (let i = 0; i < word.length && nextWord.length + word.length - i < targetCount * 2; i++) {
-        const char = word[i];
-        if (char === '1') {
-          nextWord += '12';
-        } else if (char === '2') {
-          nextWord += '13';
-        } else {
-          nextWord += '1';
-        }
-      }
-      word = nextWord;
-      
-      if (word.length >= targetCount) {
-        word = word.substring(0, targetCount);
-        break;
-      }
+    // 生成完整目标序列（长度 = targetCount + 1，分配5%进度）
+    const word = this.generateSequence(targetCount + 1);
+    if (onProgress) {
+      onProgress(5, `扩展符号序列完成: ${targetCount + 1}`);
     }
 
     // 从缓存的最后状态继续计算
     const pointsWithBaseType = [...cached.pointsWithBaseType];
     const abelianVector = { '1': 0, '2': 0, '3': 0 };
 
-    // 重建阿贝尔向量状态
+    // 从已缓存点集重建阿贝尔向量状态，避免与新序列前缀不一致
     for (let i = 0; i < startCount; i++) {
-      const char = word[i] as '1' | '2' | '3';
-      abelianVector[char]++;
+      const bt = pointsWithBaseType[i].baseType as '1' | '2' | '3';
+      abelianVector[bt]++;
     }
 
     // 增量计算新点
-    for (let N = startCount + 1; N < targetCount; N++) {
+    for (let N = startCount + 1; N <= targetCount; N++) {
       // 动态调整进度报告频率
       const totalNewPoints = targetCount - startCount;
       const reportInterval = Math.max(100, Math.min(5000, Math.floor(totalNewPoints / 50)));
@@ -180,8 +168,30 @@ class IncrementalPointCache {
       indexMaps: this.rebuildIndexMaps(word)
     };
 
+    if (word.length !== pointsWithBaseType.length + 1) {
+      console.warn(`⚠️ 不变式失败: word.length=${word.length}, points=${pointsWithBaseType.length}`);
+    }
+
     console.log(`✅ 增量计算完成: 新增 ${targetCount - startCount} 点`);
     return result;
+  }
+
+  /**
+   * 生成标准符号序列（1→12, 2→13, 3→1）到指定长度
+   */
+  private static generateSequence(targetLength: number): string {
+    let word = '1';
+    while (word.length < targetLength) {
+      let nextWord = '';
+      for (let i = 0; i < word.length; i++) {
+        const c = word[i];
+        if (c === '1') nextWord += '12';
+        else if (c === '2') nextWord += '13';
+        else nextWord += '1';
+      }
+      word = nextWord;
+    }
+    return word.substring(0, targetLength);
   }
 
   /**

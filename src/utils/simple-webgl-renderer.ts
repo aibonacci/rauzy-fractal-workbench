@@ -36,6 +36,9 @@ export class SimpleWebGLRenderer {
     offsetY: 0.0
   };
 
+  // 变换监听（用于通知外部UI刷新缩放/偏移显示）
+  private transformListeners = new Set<(t: ViewTransform) => void>();
+
   // 着色器源码
   private vertexShaderSource = `
     attribute vec2 a_position;
@@ -138,6 +141,30 @@ export class SimpleWebGLRenderer {
     gl.clearColor(0.0, 0.0, 0.0, 1.0);
 
     console.log('🚀 简洁WebGL渲染器初始化完成');
+  }
+
+  /**
+   * 订阅视图变换变化事件，返回取消订阅函数
+   */
+  onTransformChange(listener: (t: ViewTransform) => void): () => void {
+    this.transformListeners.add(listener);
+    return () => {
+      this.transformListeners.delete(listener);
+    };
+  }
+
+  /**
+   * 通知所有监听者当前变换已更新
+   */
+  private emitTransformChange(): void {
+    const snapshot = this.getTransform();
+    for (const cb of this.transformListeners) {
+      try {
+        cb(snapshot);
+      } catch (e) {
+        console.warn('变换监听回调执行失败:', e);
+      }
+    }
   }
 
   /**
@@ -467,6 +494,7 @@ export class SimpleWebGLRenderer {
       this.transform.scale = newScale;
 
       console.log(`🔍 缩放: ${newScale.toFixed(2)}, 鼠标: (${normalizedX.toFixed(2)}, ${normalizedY.toFixed(2)})`);
+      this.emitTransformChange();
       this.render();
     });
 
@@ -498,6 +526,7 @@ export class SimpleWebGLRenderer {
       lastY = e.clientY;
 
       console.log(`🔍 拖拽: offset=(${this.transform.offsetX.toFixed(2)}, ${this.transform.offsetY.toFixed(2)}), delta=(${deltaX.toFixed(3)}, ${deltaY.toFixed(3)})`);
+      this.emitTransformChange();
       this.render();
     });
 
@@ -526,6 +555,7 @@ export class SimpleWebGLRenderer {
       offsetX: 0.0,
       offsetY: 0.0
     };
+    this.emitTransformChange();
     this.render();
   }
 
@@ -535,6 +565,7 @@ export class SimpleWebGLRenderer {
 
   setTransform(transform: Partial<ViewTransform>): void {
     this.transform = { ...this.transform, ...transform };
+    this.emitTransformChange();
     this.render();
   }
 
@@ -589,6 +620,9 @@ export class SimpleWebGLRenderer {
     if (this.colorBuffer) {
       gl.deleteBuffer(this.colorBuffer);
     }
+
+    // 清理事件监听，避免潜在泄漏
+    this.transformListeners.clear();
 
     console.log('🧹 简洁WebGL渲染器已清理');
   }

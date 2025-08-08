@@ -29,6 +29,8 @@ const WebGLFractalCanvas: React.FC<WebGLFractalCanvasProps> = ({
   const [webglSupported, setWebglSupported] = useState(true);
   const { config } = useConfig();
   const [showBackground, setShowBackground] = useState(true);
+  const [viewTransform, setViewTransform] = useState<ViewTransform>({ scale: 1, offsetX: 0, offsetY: 0 });
+  const transformUnsubRef = useRef<(() => void) | null>(null);
   const [renderStats, setRenderStats] = useState({
     pointCount: 0,
     renderTime: 0,
@@ -45,6 +47,18 @@ const WebGLFractalCanvas: React.FC<WebGLFractalCanvasProps> = ({
       webglRendererRef.current = renderer;
       setWebglSupported(true);
 
+      // 初始化视图并订阅变换变化
+      const initial = renderer.getTransform();
+      setViewTransform(initial);
+      try {
+        transformUnsubRef.current = renderer.onTransformChange((t) => {
+          setViewTransform(t);
+          onViewChange?.(t);
+        });
+      } catch (e) {
+        console.warn('无法订阅变换变化事件:', e);
+      }
+
       console.log('🚀 增强型WebGL渲染器初始化成功');
     } catch (error) {
       console.warn('WebGL不支持，回退到Canvas 2D:', error);
@@ -53,6 +67,13 @@ const WebGLFractalCanvas: React.FC<WebGLFractalCanvasProps> = ({
     }
 
     return () => {
+      // 清理订阅与渲染器
+      try {
+        if (transformUnsubRef.current) {
+          transformUnsubRef.current();
+          transformUnsubRef.current = null;
+        }
+      } catch {}
       if (webglRendererRef.current) {
         webglRendererRef.current.dispose();
         webglRendererRef.current = null;
@@ -277,7 +298,7 @@ const WebGLFractalCanvas: React.FC<WebGLFractalCanvasProps> = ({
   }, []);
 
   // 设置视图变换
-  const setViewTransform = useCallback((transform: Partial<ViewTransform>) => {
+  const setRendererViewTransform = useCallback((transform: Partial<ViewTransform>) => {
     if (webglRendererRef.current) {
       webglRendererRef.current.setTransform(transform);
 
@@ -323,7 +344,7 @@ const WebGLFractalCanvas: React.FC<WebGLFractalCanvasProps> = ({
       {/* 缩放信息 - 简化显示 */}
       {webglSupported && webglRendererRef.current && (
         <div className="absolute top-4 left-4 bg-gray-800 bg-opacity-90 text-white text-xs px-3 py-2 rounded font-mono">
-          <div>缩放: {(webglRendererRef.current.getTransform().scale * 100).toFixed(0)}%</div>
+          <div>缩放: {(viewTransform.scale * 100).toFixed(0)}%</div>
         </div>
       )}
 

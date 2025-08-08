@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { DataPanelProps } from '../../types';
-import { TEST_IDS } from '../../utils/constants';
 import { useI18n } from '../../i18n/context';
+import { useTestId } from '../../hooks/useTestIds';
 import PathDataCard from './PathDataCard';
 import LanguageToggle from '../LanguageToggle/LanguageToggle';
 import ExternalLinks from '../ExternalLinks/ExternalLinks';
@@ -9,11 +9,12 @@ import ExternalLinks from '../ExternalLinks/ExternalLinks';
 const DataPanel: React.FC<DataPanelProps> = ({ pathsData }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const { t } = useI18n();
+  const dataPanelTestId = useTestId('dataPanel');
   
   return (
     <div 
       className="h-full flex flex-col"
-      data-testid={TEST_IDS.DATA_PANEL}
+      data-testid={dataPanelTestId}
     >
       {/* 标题行：包含标题、工具组和折叠按钮 */}
       <div className="flex items-center justify-between mb-4 flex-shrink-0">

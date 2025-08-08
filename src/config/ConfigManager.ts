@@ -11,6 +11,14 @@ import { mergeConfig, deepClone, getConfigValue, setConfigValue, compareConfigs 
 import { ConfigFilePersistence, createFilePersistence, FileLoadResult, FileSaveResult } from './filePersistence';
 import { ConfigHotReloader, createHotReloader, HotReloadNotification, HotReloadErrorRecovery } from './hotReload';
 import { HotReloadNotificationManager, createHotReloadNotificationManager, HotReloadMessageFormatter } from './hotReloadNotifications';
+import { 
+  ConfigError, 
+  ConfigErrorType, 
+  configErrorHandler, 
+  withErrorHandling, 
+  getUserFriendlyErrorMessage,
+  errorReportCollector 
+} from './errorHandling';
 
 export interface ConfigManagerOptions {
   enableValidation?: boolean;
@@ -123,8 +131,12 @@ export class ConfigManager {
     let backupRestored = false;
 
     try {
-      // Load configuration using file persistence
-      const fileResult: FileLoadResult = await this.filePersistence.loadConfigFile();
+      // Load configuration using file persistence with error handling
+      const fileResult: FileLoadResult = await withErrorHandling(
+        () => this.filePersistence.loadConfigFile(),
+        ConfigErrorType.LOAD_FAILED,
+        { configPath: this.configPath }
+      );
       
       let loadedConfig: Partial<AppConfiguration> = {};
       
@@ -195,12 +207,26 @@ export class ConfigManager {
         backupRestored
       };
     } catch (error) {
-      const errorMessage = `Critical error loading configuration: ${error instanceof Error ? error.message : 'Unknown error'}`;
-      errors.push(errorMessage);
-      this.options.onFileError(errorMessage, 'load');
-      
-      // Ensure we always have a valid configuration
-      this.config = deepClone(defaultConfig);
+      // Handle configuration errors using error handler
+      if (error instanceof ConfigError) {
+        errorReportCollector.addReport(error);
+        const userMessage = getUserFriendlyErrorMessage(error);
+        errors.push(userMessage);
+        this.options.onFileError(userMessage, 'load');
+        
+        // Try to recover using error handler
+        try {
+          this.config = await configErrorHandler.handleError(error);
+        } catch (recoveryError) {
+          this.config = deepClone(defaultConfig);
+          errors.push('配置恢复失败，使用默认配置');
+        }
+      } else {
+        const errorMessage = `Critical error loading configuration: ${error instanceof Error ? error.message : 'Unknown error'}`;
+        errors.push(errorMessage);
+        this.options.onFileError(errorMessage, 'load');
+        this.config = deepClone(defaultConfig);
+      }
       
       return {
         config: this.config,
@@ -414,7 +440,11 @@ export class ConfigManager {
           })
         : this.filePersistence;
 
-      const saveResult: FileSaveResult = await persistence.saveConfigFile(this.config);
+      const saveResult: FileSaveResult = await withErrorHandling(
+        () => persistence.saveConfigFile(this.config),
+        ConfigErrorType.SAVE_FAILED,
+        { configPath: filePath || this.configPath }
+      );
       
       if (!saveResult.success) {
         this.options.onFileError(saveResult.error || 'Unknown save error', 'save');
@@ -430,12 +460,23 @@ export class ConfigManager {
         backupPath: saveResult.backupPath
       };
     } catch (error) {
-      const errorMessage = `Failed to save configuration: ${error instanceof Error ? error.message : 'Unknown error'}`;
-      this.options.onFileError(errorMessage, 'save');
-      return { 
-        success: false, 
-        error: errorMessage
-      };
+      // Handle save errors using error handler
+      if (error instanceof ConfigError) {
+        errorReportCollector.addReport(error);
+        const userMessage = getUserFriendlyErrorMessage(error);
+        this.options.onFileError(userMessage, 'save');
+        return { 
+          success: false, 
+          error: userMessage
+        };
+      } else {
+        const errorMessage = `Failed to save configuration: ${error instanceof Error ? error.message : 'Unknown error'}`;
+        this.options.onFileError(errorMessage, 'save');
+        return { 
+          success: false, 
+          error: errorMessage
+        };
+      }
     }
   }
 
@@ -444,7 +485,7 @@ export class ConfigManager {
    */
   private async setupHotReload(): Promise<void> {
     if (typeof window !== 'undefined') {
-      console.warn('Hot reload not supported in browser environment');
+      // Hot reload is not supported in browser environment, silently skip
       return;
     }
 
@@ -871,6 +912,36 @@ export class ConfigManager {
   }
 
   /**
+   * Get configuration error reports
+   */
+  getErrorReports(): {
+    total: number;
+    recent: any[];
+    all: any[];
+  } {
+    const reports = errorReportCollector.getReports();
+    return {
+      total: reports.length,
+      recent: errorReportCollector.getRecentReports(5),
+      all: reports
+    };
+  }
+
+  /**
+   * Clear configuration error reports
+   */
+  clearErrorReports(): void {
+    errorReportCollector.clearReports();
+  }
+
+  /**
+   * Export configuration error reports
+   */
+  exportErrorReports(): string {
+    return errorReportCollector.exportReports();
+  }
+
+  /**
    * Clean up resources and stop hot reload
    */
   async dispose(): Promise<void> {
@@ -878,6 +949,7 @@ export class ConfigManager {
     this.clearListeners();
     this.notificationManager.clearHandlers();
     this.notificationManager.dismissAll();
+    this.clearErrorReports();
   }
 }
 

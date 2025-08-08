@@ -1,5 +1,6 @@
 import React from 'react';
-import { TEST_IDS } from '../../utils/constants';
+import { useConfig } from '../../config/ConfigContext';
+import { getTestId } from '../../config/utils';
 
 interface LoadingOverlayProps {
   message?: string;
@@ -8,10 +9,12 @@ interface LoadingOverlayProps {
 const LoadingOverlay: React.FC<LoadingOverlayProps> = ({ 
   message = '正在计算核心算法...' 
 }) => {
+  const { config } = useConfig();
+  
   return (
     <div 
       className="absolute inset-0 bg-gray-900 bg-opacity-75 flex items-center justify-center rounded-lg z-10"
-      data-testid={TEST_IDS.LOADING_INDICATOR}
+      data-testid={getTestId(config, 'loadingIndicator')}
     >
       <div className="text-center">
         <div className="text-white text-2xl animate-pulse mb-4">

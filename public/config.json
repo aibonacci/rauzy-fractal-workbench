@@ -1,0 +1,110 @@
+{
+  "version": "1.0.0",
+  "lastModified": "2024-08-08T00:00:00.000Z",
+  "app": {
+    "points": {
+      "min": 10000,
+      "max": 2000000,
+      "default": 100000,
+      "step": 10000
+    },
+    "paths": {
+      "maxCount": 20000,
+      "maxLength": 100
+    },
+    "canvas": {
+      "width": 800,
+      "height": 600,
+      "backgroundColor": "#111827"
+    }
+  },
+  "ui": {
+    "theme": "dark",
+    "colors": {
+      "primary": "#3b82f6",
+      "secondary": "#6b7280",
+      "accent": "#f59e0b",
+      "background": "#111827",
+      "surface": "#1f2937",
+      "text": "#f9fafb"
+    },
+    "animations": {
+      "enabled": true,
+      "duration": 300,
+      "easing": "ease-in-out"
+    },
+    "notifications": {
+      "enabled": true,
+      "position": "top-right",
+      "defaultDuration": 3000,
+      "successDuration": 2000,
+      "errorDuration": 5000,
+      "warningDuration": 4000,
+      "infoDuration": 3000
+    },
+    "layout": {
+      "breakpoints": {
+        "mobile": 768,
+        "tablet": 1024,
+        "desktop": 1280
+      }
+    }
+  },
+  "performance": {
+    "cache": {
+      "enabled": true,
+      "maxSize": 1000,
+      "ttl": 300000
+    },
+    "rendering": {
+      "webgl": {
+        "enabled": true,
+        "antialias": true,
+        "preserveDrawingBuffer": false
+      },
+      "canvas": {
+        "width": 800,
+        "height": 600,
+        "pixelRatio": 1
+      }
+    },
+    "computation": {
+      "maxWorkers": 4,
+      "chunkSize": 1000,
+      "timeout": 30000
+    }
+  },
+  "development": {
+    "debug": {
+      "enabled": false,
+      "logLevel": "info",
+      "showPerformanceMetrics": false
+    },
+    "features": {
+      "hotReload": false,
+      "typeChecking": true,
+      "configValidation": true
+    },
+    "language": {
+      "defaultLanguage": "zh",
+      "storageKey": "rauzy-language",
+      "supportedLanguages": ["zh", "en"]
+    },
+    "testIds": {
+      "pathInput": "path-input",
+      "addPathButton": "add-path-button",
+      "pathList": "path-list",
+      "fractalCanvas": "fractal-canvas",
+      "pointsSlider": "points-slider",
+      "themeToggle": "theme-toggle",
+      "languageToggle": "language-toggle",
+      "exportButton": "export-button",
+      "importButton": "import-button",
+      "resetButton": "reset-button",
+      "dataPanel": "data-panel",
+      "controlPanel": "control-panel",
+      "pathDataCard": "path-data-card",
+      "loadingIndicator": "loading-indicator"
+    }
+  }
+}

@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { AgentOperationHelper } from '../../utils/agent-helper';
-import { TEST_IDS } from '../../utils/constants';
+import { DEFAULT_CONFIG } from '../../config/defaultConfig';
+import { getTestId } from '../../config/utils';
 
 /**
  * 端到端集成测试
@@ -16,15 +17,15 @@ describe('完整工作流程测试', () => {
     appContainer.innerHTML = `
       <div class="app">
         <div class="control-panel">
-          <input data-testid="${TEST_IDS.PATH_INPUT}" type="text" />
-          <button data-testid="${TEST_IDS.ADD_PATH_BUTTON}">添加路径</button>
-          <input data-testid="${TEST_IDS.POINTS_SLIDER}" type="range" min="10000" max="1000000" value="100000" />
-          <div data-testid="${TEST_IDS.PATH_LIST}"></div>
+          <input data-testid="${getTestId(DEFAULT_CONFIG, 'PATH_INPUT')}" type="text" />
+          <button data-testid="${getTestId(DEFAULT_CONFIG, 'ADD_PATH_BUTTON')}">添加路径</button>
+          <input data-testid="${getTestId(DEFAULT_CONFIG, 'POINTS_SLIDER')}" type="range" min="10000" max="1000000" value="100000" />
+          <div data-testid="${getTestId(DEFAULT_CONFIG, 'PATH_LIST')}"></div>
         </div>
         <div class="canvas-area">
-          <canvas data-testid="${TEST_IDS.FRACTAL_CANVAS}" width="800" height="600"></canvas>
+          <canvas data-testid="${getTestId(DEFAULT_CONFIG, 'FRACTAL_CANVAS')}" width="800" height="600"></canvas>
         </div>
-        <div class="data-panel" data-testid="${TEST_IDS.DATA_PANEL}"></div>
+        <div class="data-panel" data-testid="${getTestId(DEFAULT_CONFIG, 'DATA_PANEL')}"></div>
       </div>
     `;
     document.body.appendChild(appContainer);
@@ -37,15 +38,15 @@ describe('完整工作流程测试', () => {
   describe('用户手动操作流程', () => {
     it('应该支持完整的路径分析流程', async () => {
       // 1. 设置点数
-      const pointsSlider = document.querySelector(`[data-testid="${TEST_IDS.POINTS_SLIDER}"]`) as HTMLInputElement;
+      const pointsSlider = document.querySelector(`[data-testid="${getTestId(DEFAULT_CONFIG, 'POINTS_SLIDER')}"]`) as HTMLInputElement;
       expect(pointsSlider).toBeTruthy();
       
       pointsSlider.value = '50000';
       pointsSlider.dispatchEvent(new Event('change'));
       
       // 2. 添加路径
-      const pathInput = document.querySelector(`[data-testid="${TEST_IDS.PATH_INPUT}"]`) as HTMLInputElement;
-      const addButton = document.querySelector(`[data-testid="${TEST_IDS.ADD_PATH_BUTTON}"]`) as HTMLButtonElement;
+      const pathInput = document.querySelector(`[data-testid="${getTestId(DEFAULT_CONFIG, 'PATH_INPUT')}"]`) as HTMLInputElement;
+      const addButton = document.querySelector(`[data-testid="${getTestId(DEFAULT_CONFIG, 'ADD_PATH_BUTTON')}"]`) as HTMLButtonElement;
       
       expect(pathInput).toBeTruthy();
       expect(addButton).toBeTruthy();
@@ -59,13 +60,13 @@ describe('完整工作流程测试', () => {
       
       // 3. 验证路径已添加
       // 在真实应用中，这里会有路径项出现
-      const pathList = document.querySelector(`[data-testid="${TEST_IDS.PATH_LIST}"]`);
+      const pathList = document.querySelector(`[data-testid="${getTestId(DEFAULT_CONFIG, 'PATH_LIST')}"]`);
       expect(pathList).toBeTruthy();
     });
 
     it('应该处理输入验证错误', async () => {
-      const pathInput = document.querySelector(`[data-testid="${TEST_IDS.PATH_INPUT}"]`) as HTMLInputElement;
-      const addButton = document.querySelector(`[data-testid="${TEST_IDS.ADD_PATH_BUTTON}"]`) as HTMLButtonElement;
+      const pathInput = document.querySelector(`[data-testid="${getTestId(DEFAULT_CONFIG, 'PATH_INPUT')}"]`) as HTMLInputElement;
+      const addButton = document.querySelector(`[data-testid="${getTestId(DEFAULT_CONFIG, 'ADD_PATH_BUTTON')}"]`) as HTMLButtonElement;
       
       // 测试无效输入
       pathInput.value = '1234'; // 包含无效数字4
@@ -83,7 +84,7 @@ describe('完整工作流程测试', () => {
       // 创建模拟的路径项
       const createMockPathItem = (index: number, path: string) => {
         const pathItem = document.createElement('div');
-        pathItem.setAttribute('data-testid', `${TEST_IDS.PATH_ITEM}-${index}`);
+        pathItem.setAttribute('data-testid', `${getTestId(DEFAULT_CONFIG, 'PATH_ITEM')}-${index}`);
         
         const pathSpan = document.createElement('span');
         pathSpan.textContent = `(${path})`;
@@ -91,7 +92,7 @@ describe('完整工作流程测试', () => {
         pathItem.appendChild(pathSpan);
         
         const deleteButton = document.createElement('button');
-        deleteButton.setAttribute('data-testid', `${TEST_IDS.DELETE_PATH_BUTTON}-${index}`);
+        deleteButton.setAttribute('data-testid', `${getTestId(DEFAULT_CONFIG, 'DELETE_PATH_BUTTON')}-${index}`);
         deleteButton.textContent = '删除';
         pathItem.appendChild(deleteButton);
         
@@ -109,7 +110,7 @@ describe('完整工作流程测试', () => {
         expect(success).toBe(true);
         
         // 模拟路径被添加到DOM
-        const pathList = document.querySelector(`[data-testid="${TEST_IDS.PATH_LIST}"]`);
+        const pathList = document.querySelector(`[data-testid="${getTestId(DEFAULT_CONFIG, 'PATH_LIST')}"]`);
         const pathItem = createMockPathItem(i, paths[i].split('').join(','));
         pathList?.appendChild(pathItem);
       }
@@ -171,9 +172,9 @@ describe('完整工作流程测试', () => {
         expect(success).toBe(true);
         
         // 模拟DOM更新
-        const pathList = document.querySelector(`[data-testid="${TEST_IDS.PATH_LIST}"]`);
+        const pathList = document.querySelector(`[data-testid="${getTestId(DEFAULT_CONFIG, 'PATH_LIST')}"]`);
         const pathItem = document.createElement('div');
-        pathItem.setAttribute('data-testid', `${TEST_IDS.PATH_ITEM}-${i}`);
+        pathItem.setAttribute('data-testid', `${getTestId(DEFAULT_CONFIG, 'PATH_ITEM')}-${i}`);
         const pathSpan = document.createElement('span');
         pathSpan.textContent = `(${paths[i].split('').join(',')})`;
         pathSpan.setAttribute('title', 'path info');
@@ -191,7 +192,7 @@ describe('完整工作流程测试', () => {
         expect(success).toBe(true);
         
         // 模拟DOM更新
-        const pathItem = document.querySelector(`[data-testid="${TEST_IDS.PATH_ITEM}-${i}"]`);
+        const pathItem = document.querySelector(`[data-testid="${getTestId(DEFAULT_CONFIG, 'PATH_ITEM')}-${i}"]`);
         pathItem?.remove();
       }
       
@@ -220,9 +221,9 @@ describe('完整工作流程测试', () => {
       await AgentOperationHelper.addPath('123');
       
       // 模拟DOM更新
-      const pathList = document.querySelector(`[data-testid="${TEST_IDS.PATH_LIST}"]`);
+      const pathList = document.querySelector(`[data-testid="${getTestId(DEFAULT_CONFIG, 'PATH_LIST')}"]`);
       const pathItem = document.createElement('div');
-      pathItem.setAttribute('data-testid', `${TEST_IDS.PATH_ITEM}-0`);
+      pathItem.setAttribute('data-testid', `${getTestId(DEFAULT_CONFIG, 'PATH_ITEM')}-0`);
       const pathSpan = document.createElement('span');
       pathSpan.textContent = '(1,2,3)';
       pathSpan.setAttribute('title', 'path info');
@@ -262,7 +263,7 @@ describe('完整工作流程测试', () => {
   describe('错误恢复测试', () => {
     it('应该从错误状态中恢复', async () => {
       // 模拟错误状态
-      const pathInput = document.querySelector(`[data-testid="${TEST_IDS.PATH_INPUT}"]`) as HTMLInputElement;
+      const pathInput = document.querySelector(`[data-testid="${getTestId(DEFAULT_CONFIG, 'PATH_INPUT')}"]`) as HTMLInputElement;
       pathInput.remove(); // 移除输入框模拟错误
       
       // 尝试操作应该失败
@@ -271,7 +272,7 @@ describe('完整工作流程测试', () => {
       
       // 恢复DOM结构
       const newPathInput = document.createElement('input');
-      newPathInput.setAttribute('data-testid', TEST_IDS.PATH_INPUT);
+      newPathInput.setAttribute('data-testid', getTestId(DEFAULT_CONFIG, 'PATH_INPUT'));
       newPathInput.type = 'text';
       document.querySelector('.control-panel')?.appendChild(newPathInput);
       
@@ -283,7 +284,7 @@ describe('完整工作流程测试', () => {
     it('应该处理超时情况', async () => {
       // 添加加载指示器
       const loadingIndicator = document.createElement('div');
-      loadingIndicator.setAttribute('data-testid', TEST_IDS.LOADING_INDICATOR);
+      loadingIndicator.setAttribute('data-testid', getTestId(DEFAULT_CONFIG, 'LOADING_INDICATOR'));
       document.body.appendChild(loadingIndicator);
       
       // 测试超时
@@ -313,12 +314,12 @@ describe('AI Agent完整操作流程', () => {
     const appContainer = document.createElement('div');
     appContainer.innerHTML = `
       <div class="app">
-        <input data-testid="${TEST_IDS.PATH_INPUT}" type="text" />
-        <button data-testid="${TEST_IDS.ADD_PATH_BUTTON}">添加路径</button>
-        <input data-testid="${TEST_IDS.POINTS_SLIDER}" type="range" min="10000" max="1000000" value="100000" />
-        <div data-testid="${TEST_IDS.PATH_LIST}"></div>
-        <canvas data-testid="${TEST_IDS.FRACTAL_CANVAS}" width="800" height="600"></canvas>
-        <div data-testid="${TEST_IDS.DATA_PANEL}"></div>
+        <input data-testid="${getTestId(DEFAULT_CONFIG, 'PATH_INPUT')}" type="text" />
+        <button data-testid="${getTestId(DEFAULT_CONFIG, 'ADD_PATH_BUTTON')}">添加路径</button>
+        <input data-testid="${getTestId(DEFAULT_CONFIG, 'POINTS_SLIDER')}" type="range" min="10000" max="1000000" value="100000" />
+        <div data-testid="${getTestId(DEFAULT_CONFIG, 'PATH_LIST')}"></div>
+        <canvas data-testid="${getTestId(DEFAULT_CONFIG, 'FRACTAL_CANVAS')}" width="800" height="600"></canvas>
+        <div data-testid="${getTestId(DEFAULT_CONFIG, 'DATA_PANEL')}"></div>
       </div>
     `;
     document.body.appendChild(appContainer);
@@ -344,9 +345,9 @@ describe('AI Agent完整操作流程', () => {
       expect(success).toBe(true);
       
       // 模拟路径添加到DOM
-      const pathList = document.querySelector(`[data-testid="${TEST_IDS.PATH_LIST}"]`);
+      const pathList = document.querySelector(`[data-testid="${getTestId(DEFAULT_CONFIG, 'PATH_LIST')}"]`);
       const pathItem = document.createElement('div');
-      pathItem.setAttribute('data-testid', `${TEST_IDS.PATH_ITEM}-${i}`);
+      pathItem.setAttribute('data-testid', `${getTestId(DEFAULT_CONFIG, 'PATH_ITEM')}-${i}`);
       const pathSpan = document.createElement('span');
       pathSpan.textContent = `(${researchPaths[i].split('').join(',')})`;
       pathSpan.setAttribute('title', 'path info');

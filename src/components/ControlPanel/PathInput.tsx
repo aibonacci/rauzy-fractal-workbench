@@ -1,6 +1,6 @@
 import React from 'react';
-import { TEST_IDS } from '../../utils/constants';
 import { useI18n } from '../../i18n/context';
+import { useTestId } from '../../hooks/useTestIds';
 
 interface PathInputProps {
   value: string;
@@ -18,6 +18,8 @@ const PathInput: React.FC<PathInputProps> = ({
   disabled
 }) => {
   const { t } = useI18n();
+  const pathInputId = useTestId('PATH_INPUT');
+  const addButtonId = useTestId('ADD_PATH_BUTTON');
   const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !disabled) {
       onSubmit();
@@ -39,7 +41,7 @@ const PathInput: React.FC<PathInputProps> = ({
       
       <input
         id="path-input"
-        data-testid={TEST_IDS.PATH_INPUT}
+        data-testid={pathInputId}
         type="text"
         value={value}
         onChange={handleChange}
@@ -56,7 +58,7 @@ const PathInput: React.FC<PathInputProps> = ({
       )}
       
       <button
-        data-testid={TEST_IDS.ADD_PATH_BUTTON}
+        data-testid={addButtonId}
         onClick={onSubmit}
         disabled={disabled || !value.trim()}
         className="w-full mt-2 bg-yellow-500 text-gray-900 font-bold py-2 rounded-lg hover:bg-yellow-400 disabled:bg-gray-500 disabled:cursor-not-allowed transition-colors"

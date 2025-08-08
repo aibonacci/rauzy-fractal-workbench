@@ -425,7 +425,12 @@ export const CONFIG_VALIDATION_RULES: ValidationRuleSet = {
           return 'testIds must be an object';
         }
         
-        const requiredIds = ['pathInput', 'addPathButton', 'pathList', 'fractalCanvas'];
+        const requiredIds = [
+          'pathInput', 'addPathButton', 'pathList', 'fractalCanvas',
+          'pointsSlider', 'themeToggle', 'languageToggle', 'exportButton',
+          'importButton', 'resetButton', 'dataPanel', 'controlPanel', 'pathDataCard',
+          'loadingIndicator'
+        ];
         const missing = requiredIds.filter(id => !testIds[id]);
         
         if (missing.length > 0) {

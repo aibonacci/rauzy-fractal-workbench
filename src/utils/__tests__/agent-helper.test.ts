@@ -183,7 +183,7 @@ describe('AgentOperationHelper', () => {
       // 创建2个路径项
       for (let i = 0; i < 2; i++) {
         const pathItem = document.createElement('div');
-        pathItem.setAttribute('data-testid', `${TEST_IDS.PATH_ITEM}-${i}`);
+        pathItem.setAttribute('data-testid', `path-item-${i}`);
         
         const pathSpan = document.createElement('span');
         pathSpan.textContent = `(${i+1},2,3)`;

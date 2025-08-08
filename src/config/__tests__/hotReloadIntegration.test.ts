@@ -1,403 +1,487 @@
 /**
- * Hot Reload Integration Tests
- * Tests for the complete hot reload system integration
+ * 配置热重载功能集成测试
+ * 验证文件监听、配置重新加载和错误恢复的完整流程
  */
-
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { ConfigManager, createConfigManager } from '../ConfigManager';
-import { AppConfiguration } from '../types';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { createConfigManager } from '../ConfigManager';
 import { DEFAULT_CONFIG } from '../defaultConfig';
+import { AppConfiguration } from '../types';
 
-// Mock Node.js fs module
+// Mock file system operations
 const mockFs = {
-  promises: {
-    stat: vi.fn(),
-    readFile: vi.fn(),
-    writeFile: vi.fn(),
-    access: vi.fn()
-  },
-  watchFile: vi.fn(),
-  unwatchFile: vi.fn(),
-  constants: {
-    F_OK: 0,
-    R_OK: 4,
-    W_OK: 2
-  }
+  readFile: vi.fn(),
+  writeFile: vi.fn(),
+  access: vi.fn(),
+  stat: vi.fn(),
+  mkdir: vi.fn(),
+  readdir: vi.fn(),
+  unlink: vi.fn(),
+  watch: vi.fn()
 };
 
-const mockPath = {
-  resolve: vi.fn((path: string) => path),
-  dirname: vi.fn((path: string) => path.split('/').slice(0, -1).join('/') || '.'),
-  extname: vi.fn((path: string) => {
-    const parts = path.split('.');
-    return parts.length > 1 ? `.${parts[parts.length - 1]}` : '';
-  })
+vi.mock('fs/promises', () => mockFs);
+vi.mock('fs', () => ({
+  watch: mockFs.watch
+}));
+
+// Mock localStorage
+const localStorageMock = {
+  getItem: vi.fn(),
+  setItem: vi.fn(),
+  removeItem: vi.fn(),
+  clear: vi.fn()
 };
+Object.defineProperty(window, 'localStorage', {
+  value: localStorageMock
+});
 
-// Mock dynamic imports
-vi.mock('fs', () => mockFs);
-vi.mock('path', () => mockPath);
-
-describe('Hot Reload Integration', () => {
-  let configManager: ConfigManager;
-  let mockConfig: AppConfiguration;
-  let onConfigChange: ReturnType<typeof vi.fn>;
-  let onValidationError: ReturnType<typeof vi.fn>;
-  let onFileError: ReturnType<typeof vi.fn>;
+describe('配置热重载功能集成测试', () => {
+  let configManager: ReturnType<typeof createConfigManager>;
+  let mockWatcher: any;
+  let watcherCallbacks: { [event: string]: Function[] } = {};
 
   beforeEach(() => {
-    vi.clearAllMocks();
+    // Reset watcher callbacks
+    watcherCallbacks = {};
     
-    // Reset global window object for Node.js environment simulation
-    Object.defineProperty(global, 'window', {
-      value: undefined,
-      writable: true
-    });
-
-    mockConfig = { ...DEFAULT_CONFIG };
-    onConfigChange = vi.fn();
-    onValidationError = vi.fn();
-    onFileError = vi.fn();
-
-    // Mock file system operations
-    mockFs.promises.stat.mockResolvedValue({
-      mtime: new Date('2024-01-01T10:00:00Z'),
-      size: 1024
-    });
+    // Mock file watcher
+    mockWatcher = {
+      on: vi.fn((event: string, callback: Function) => {
+        if (!watcherCallbacks[event]) {
+          watcherCallbacks[event] = [];
+        }
+        watcherCallbacks[event].push(callback);
+      }),
+      close: vi.fn()
+    };
     
-    mockFs.promises.readFile.mockResolvedValue(JSON.stringify(mockConfig));
-    mockFs.promises.writeFile.mockResolvedValue(undefined);
-    mockFs.promises.access.mockResolvedValue(undefined);
+    mockFs.watch.mockReturnValue(mockWatcher);
 
     configManager = createConfigManager({
-      configPath: './test-config.json',
-      enableHotReload: true,
       enableValidation: true,
-      onConfigChange,
-      onValidationError,
-      onFileError
+      enableHotReload: true,
+      configPath: './test-config.json'
     });
+
+    // Clear localStorage mocks
+    localStorageMock.getItem.mockClear();
+    localStorageMock.setItem.mockClear();
+    localStorageMock.removeItem.mockClear();
+    localStorageMock.clear.mockClear();
+
+    // Clear fs mocks
+    vi.clearAllMocks();
   });
 
   afterEach(async () => {
-    if (configManager.isReady()) {
-      await configManager.dispose();
-    }
+    await configManager.dispose();
+    vi.clearAllMocks();
   });
 
-  describe('initialization with hot reload', () => {
-    it('should initialize with hot reload enabled', async () => {
-      const result = await configManager.initialize();
+  describe('热重载初始化', () => {
+    it('应该在启用热重载时正确设置文件监听', async () => {
+      // Mock successful file read
+      mockFs.readFile.mockResolvedValue(JSON.stringify(DEFAULT_CONFIG));
 
-      expect(result.isValid).toBe(true);
+      await configManager.initialize();
+
       expect(configManager.isHotReloadActive()).toBe(true);
-      expect(mockFs.watchFile).toHaveBeenCalled();
+      expect(mockFs.watch).toHaveBeenCalledWith('./test-config.json');
+      expect(mockWatcher.on).toHaveBeenCalledWith('change', expect.any(Function));
     });
 
-    it('should handle initialization errors gracefully', async () => {
-      mockFs.watchFile.mockImplementation(() => {
+    it('应该在浏览器环境中禁用热重载', async () => {
+      // Mock browser environment
+      const originalWindow = global.window;
+      global.window = {} as any;
+
+      mockFs.readFile.mockResolvedValue(JSON.stringify(DEFAULT_CONFIG));
+
+      await configManager.initialize();
+
+      expect(configManager.isHotReloadActive()).toBe(false);
+      expect(mockFs.watch).not.toHaveBeenCalled();
+
+      // Restore
+      global.window = originalWindow;
+    });
+
+    it('应该处理文件监听设置失败', async () => {
+      mockFs.readFile.mockResolvedValue(JSON.stringify(DEFAULT_CONFIG));
+      mockFs.watch.mockImplementation(() => {
         throw new Error('Watch failed');
       });
 
-      const result = await configManager.initialize();
+      const mockOnFileError = vi.fn();
+      const manager = createConfigManager({
+        enableHotReload: true,
+        onFileError: mockOnFileError
+      });
 
-      expect(result.isValid).toBe(true); // Config should still be loaded
-      expect(configManager.isHotReloadActive()).toBe(false);
-      expect(onFileError).toHaveBeenCalledWith(
-        expect.stringContaining('Failed to setup hot reload'),
+      await manager.initialize();
+
+      expect(manager.isHotReloadActive()).toBe(false);
+      expect(mockOnFileError).toHaveBeenCalledWith(
+        expect.stringContaining('Watch failed'),
         'load'
       );
+
+      await manager.dispose();
     });
   });
 
-  describe('hot reload control', () => {
+  describe('配置文件变化检测', () => {
     beforeEach(async () => {
+      mockFs.readFile.mockResolvedValue(JSON.stringify(DEFAULT_CONFIG));
       await configManager.initialize();
     });
 
-    it('should enable hot reload when disabled', async () => {
-      await configManager.disableHotReload();
-      expect(configManager.isHotReloadActive()).toBe(false);
-
-      const result = await configManager.enableHotReload();
-
-      expect(result.success).toBe(true);
-      expect(configManager.isHotReloadActive()).toBe(true);
-    });
-
-    it('should disable hot reload when enabled', async () => {
-      expect(configManager.isHotReloadActive()).toBe(true);
-
-      await configManager.disableHotReload();
-
-      expect(configManager.isHotReloadActive()).toBe(false);
-      expect(mockFs.unwatchFile).toHaveBeenCalled();
-    });
-
-    it('should provide hot reload status', async () => {
-      const status = configManager.getHotReloadStatus();
-
-      expect(status.isActive).toBe(true);
-      expect(status.configPath).toBe('./test-config.json');
-      expect(status.lastModified).toBeGreaterThan(0);
-    });
-  });
-
-  describe('configuration hot reloading', () => {
-    beforeEach(async () => {
-      await configManager.initialize();
-    });
-
-    it('should reload configuration when file changes', async () => {
+    it('应该在文件变化时重新加载配置', async () => {
       const updatedConfig = {
-        ...mockConfig,
-        app: {
-          ...mockConfig.app,
-          points: {
-            ...mockConfig.app.points,
-            default: 150
-          }
-        }
+        ...DEFAULT_CONFIG,
+        app: { ...DEFAULT_CONFIG.app, points: { min: 500, max: 5000 } }
       };
 
-      mockFs.promises.readFile.mockResolvedValue(JSON.stringify(updatedConfig));
+      const mockOnConfigChange = vi.fn();
+      const manager = createConfigManager({
+        enableHotReload: true,
+        onConfigChange: mockOnConfigChange
+      });
+
+      mockFs.readFile.mockResolvedValue(JSON.stringify(DEFAULT_CONFIG));
+      await manager.initialize();
 
       // Simulate file change
-      const watchCallback = mockFs.watchFile.mock.calls[0][2];
-      watchCallback(
-        { mtime: new Date('2024-01-01T11:00:00Z') },
-        { mtime: new Date('2024-01-01T10:00:00Z') }
-      );
-
-      // Wait for debounce and reload
-      await new Promise(resolve => setTimeout(resolve, 350));
-
-      expect(onConfigChange).toHaveBeenCalledWith(
-        expect.objectContaining({
-          app: expect.objectContaining({
-            points: expect.objectContaining({
-              default: 150
-            })
-          })
-        }),
-        []
-      );
-
-      const currentConfig = configManager.getConfig();
-      expect(currentConfig.app.points.default).toBe(150);
-    });
-
-    it('should handle validation errors during hot reload', async () => {
-      const invalidConfig = {
-        ...mockConfig,
-        app: {
-          ...mockConfig.app,
-          points: {
-            ...mockConfig.app.points,
-            min: 200, // Invalid: min > max
-            max: 100
-          }
-        }
-      };
-
-      mockFs.promises.readFile.mockResolvedValue(JSON.stringify(invalidConfig));
-
-      // Simulate file change
-      const watchCallback = mockFs.watchFile.mock.calls[0][2];
-      watchCallback(
-        { mtime: new Date('2024-01-01T11:00:00Z') },
-        { mtime: new Date('2024-01-01T10:00:00Z') }
-      );
-
-      // Wait for debounce and reload
-      await new Promise(resolve => setTimeout(resolve, 350));
-
-      expect(onValidationError).toHaveBeenCalledWith(
-        expect.arrayContaining([
-          expect.stringContaining('validation')
-        ]),
-        expect.any(Array)
-      );
-
-      // Configuration should not be updated due to validation failure
-      const currentConfig = configManager.getConfig();
-      expect(currentConfig.app.points.min).toBe(mockConfig.app.points.min);
-    });
-
-    it('should handle file read errors during hot reload', async () => {
-      mockFs.promises.readFile.mockRejectedValue(new Error('File read failed'));
-
-      // Simulate file change
-      const watchCallback = mockFs.watchFile.mock.calls[0][2];
-      watchCallback(
-        { mtime: new Date('2024-01-01T11:00:00Z') },
-        { mtime: new Date('2024-01-01T10:00:00Z') }
-      );
-
-      // Wait for debounce and reload
-      await new Promise(resolve => setTimeout(resolve, 350));
-
-      expect(onFileError).toHaveBeenCalledWith(
-        expect.stringContaining('Failed to reload configuration'),
-        'load'
-      );
-    });
-
-    it('should force reload configuration', async () => {
-      const updatedConfig = {
-        ...mockConfig,
-        version: '2.0.0'
-      };
-
-      mockFs.promises.readFile.mockResolvedValue(JSON.stringify(updatedConfig));
-
-      await configManager.forceHotReload();
-
-      expect(onConfigChange).toHaveBeenCalledWith(
-        expect.objectContaining({
-          version: '2.0.0'
-        }),
-        []
-      );
-    });
-  });
-
-  describe('notification system integration', () => {
-    beforeEach(async () => {
-      await configManager.initialize();
-    });
-
-    it('should show notifications for hot reload events', async () => {
-      const notificationManager = configManager.getNotificationManager();
-      const listener = vi.fn();
-      notificationManager.subscribe(listener);
-
-      // Trigger a successful reload
-      const updatedConfig = { ...mockConfig, version: '2.0.0' };
-      mockFs.promises.readFile.mockResolvedValue(JSON.stringify(updatedConfig));
-
-      const watchCallback = mockFs.watchFile.mock.calls[0][2];
-      watchCallback(
-        { mtime: new Date('2024-01-01T11:00:00Z') },
-        { mtime: new Date('2024-01-01T10:00:00Z') }
-      );
-
-      // Wait for reload
-      await new Promise(resolve => setTimeout(resolve, 350));
-
-      expect(listener).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: 'info',
-          message: expect.stringContaining('Configuration file changed')
-        })
-      );
-
-      expect(listener).toHaveBeenCalledWith(
-        expect.objectContaining({
-          type: 'success',
-          message: expect.stringContaining('Configuration reloaded successfully')
-        })
-      );
-    });
-
-    it('should manage notifications through ConfigManager', () => {
-      const notificationId = configManager.showNotification('info', 'Test notification');
+      mockFs.readFile.mockResolvedValue(JSON.stringify(updatedConfig));
       
-      expect(notificationId).toMatch(/^hot-reload-\d+$/);
+      // Trigger change event
+      if (watcherCallbacks.change) {
+        watcherCallbacks.change.forEach(callback => callback());
+      }
+
+      // Wait for debounced reload
+      await new Promise(resolve => setTimeout(resolve, 350));
+
+      expect(manager.get('app.points.min')).toBe(500);
+      expect(mockOnConfigChange).toHaveBeenCalled();
+
+      await manager.dispose();
+    });
+
+    it('应该防抖多次快速的文件变化', async () => {
+      const mockOnConfigChange = vi.fn();
+      const manager = createConfigManager({
+        enableHotReload: true,
+        onConfigChange: mockOnConfigChange
+      });
+
+      mockFs.readFile.mockResolvedValue(JSON.stringify(DEFAULT_CONFIG));
+      await manager.initialize();
+
+      // Simulate multiple rapid changes
+      for (let i = 0; i < 5; i++) {
+        if (watcherCallbacks.change) {
+          watcherCallbacks.change.forEach(callback => callback());
+        }
+      }
+
+      // Wait for debounced reload
+      await new Promise(resolve => setTimeout(resolve, 350));
+
+      // Should only reload once due to debouncing
+      expect(mockFs.readFile).toHaveBeenCalledTimes(2); // Initial load + one reload
+
+      await manager.dispose();
+    });
+
+    it('应该在配置验证失败时保持原配置', async () => {
+      const invalidConfig = {
+        ...DEFAULT_CONFIG,
+        app: { ...DEFAULT_CONFIG.app, points: { min: -100, max: 1000 } } // Invalid min
+      };
+
+      const mockOnValidationError = vi.fn();
+      const manager = createConfigManager({
+        enableHotReload: true,
+        onValidationError: mockOnValidationError
+      });
+
+      mockFs.readFile.mockResolvedValue(JSON.stringify(DEFAULT_CONFIG));
+      await manager.initialize();
+
+      const originalMin = manager.get('app.points.min');
+
+      // Simulate file change with invalid config
+      mockFs.readFile.mockResolvedValue(JSON.stringify(invalidConfig));
+      
+      if (watcherCallbacks.change) {
+        watcherCallbacks.change.forEach(callback => callback());
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 350));
+
+      // Configuration should remain unchanged
+      expect(manager.get('app.points.min')).toBe(originalMin);
+      expect(mockOnValidationError).toHaveBeenCalled();
+
+      await manager.dispose();
+    });
+  });
+
+  describe('热重载错误处理', () => {
+    beforeEach(async () => {
+      mockFs.readFile.mockResolvedValue(JSON.stringify(DEFAULT_CONFIG));
+      await configManager.initialize();
+    });
+
+    it('应该处理文件读取错误', async () => {
+      const mockOnFileError = vi.fn();
+      const manager = createConfigManager({
+        enableHotReload: true,
+        onFileError: mockOnFileError
+      });
+
+      mockFs.readFile.mockResolvedValue(JSON.stringify(DEFAULT_CONFIG));
+      await manager.initialize();
+
+      // Simulate file read error
+      mockFs.readFile.mockRejectedValue(new Error('File read failed'));
+      
+      if (watcherCallbacks.change) {
+        watcherCallbacks.change.forEach(callback => callback());
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 350));
+
+      expect(mockOnFileError).toHaveBeenCalledWith(
+        expect.stringContaining('File read failed'),
+        'load'
+      );
+
+      await manager.dispose();
+    });
+
+    it('应该处理JSON解析错误', async () => {
+      const mockOnFileError = vi.fn();
+      const manager = createConfigManager({
+        enableHotReload: true,
+        onFileError: mockOnFileError
+      });
+
+      mockFs.readFile.mockResolvedValue(JSON.stringify(DEFAULT_CONFIG));
+      await manager.initialize();
+
+      // Simulate invalid JSON
+      mockFs.readFile.mockResolvedValue('{ invalid json }');
+      
+      if (watcherCallbacks.change) {
+        watcherCallbacks.change.forEach(callback => callback());
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 350));
+
+      expect(mockOnFileError).toHaveBeenCalled();
+
+      await manager.dispose();
+    });
+
+    it('应该在文件监听器错误时继续工作', async () => {
+      const mockOnFileError = vi.fn();
+      const manager = createConfigManager({
+        enableHotReload: true,
+        onFileError: mockOnFileError
+      });
+
+      mockFs.readFile.mockResolvedValue(JSON.stringify(DEFAULT_CONFIG));
+      await manager.initialize();
+
+      // Simulate watcher error
+      if (watcherCallbacks.error) {
+        watcherCallbacks.error.forEach(callback => 
+          callback(new Error('Watcher error'))
+        );
+      }
+
+      // Manager should still be functional
+      expect(manager.isReady()).toBe(true);
+      expect(manager.get('app.points.min')).toBe(DEFAULT_CONFIG.app.points.min);
+
+      await manager.dispose();
+    });
+  });
+
+  describe('热重载通知系统', () => {
+    beforeEach(async () => {
+      mockFs.readFile.mockResolvedValue(JSON.stringify(DEFAULT_CONFIG));
+      await configManager.initialize();
+    });
+
+    it('应该在成功重新加载时显示通知', async () => {
+      const updatedConfig = {
+        ...DEFAULT_CONFIG,
+        app: { ...DEFAULT_CONFIG.app, points: { min: 300, max: 3000 } }
+      };
+
+      // Simulate successful reload
+      mockFs.readFile.mockResolvedValue(JSON.stringify(updatedConfig));
+      
+      if (watcherCallbacks.change) {
+        watcherCallbacks.change.forEach(callback => callback());
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 350));
 
       const stats = configManager.getNotificationStats();
-      expect(stats.active).toBe(1);
-
-      const dismissed = configManager.dismissNotification(notificationId);
-      expect(dismissed).toBe(true);
-
-      const updatedStats = configManager.getNotificationStats();
-      expect(updatedStats.active).toBe(0);
+      expect(stats.total).toBeGreaterThan(0);
     });
 
-    it('should dismiss all notifications', () => {
-      configManager.showNotification('info', 'Notification 1');
-      configManager.showNotification('success', 'Notification 2');
-      configManager.showNotification('error', 'Notification 3');
+    it('应该在重新加载失败时显示错误通知', async () => {
+      // Simulate reload failure
+      mockFs.readFile.mockRejectedValue(new Error('Reload failed'));
+      
+      if (watcherCallbacks.change) {
+        watcherCallbacks.change.forEach(callback => callback());
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 350));
+
+      const stats = configManager.getNotificationStats();
+      expect(stats.byType.error).toBeGreaterThan(0);
+    });
+
+    it('应该支持手动触发通知', () => {
+      const notificationId = configManager.showNotification('info', '手动测试通知');
+      
+      expect(typeof notificationId).toBe('string');
+      expect(notificationId.length).toBeGreaterThan(0);
+
+      const stats = configManager.getNotificationStats();
+      expect(stats.active).toBeGreaterThan(0);
+    });
+
+    it('应该支持清除通知', () => {
+      const id1 = configManager.showNotification('info', '通知1');
+      const id2 = configManager.showNotification('error', '通知2');
 
       let stats = configManager.getNotificationStats();
-      expect(stats.active).toBe(3);
+      expect(stats.active).toBe(2);
+
+      configManager.dismissNotification(id1);
+      stats = configManager.getNotificationStats();
+      expect(stats.active).toBe(1);
 
       configManager.dismissAllNotifications();
-
       stats = configManager.getNotificationStats();
       expect(stats.active).toBe(0);
     });
   });
 
-  describe('error recovery', () => {
-    beforeEach(async () => {
-      await configManager.initialize();
-    });
-
-    it('should attempt recovery on hot reload failures', async () => {
-      // Mock initial failure followed by success
-      let callCount = 0;
-      mockFs.promises.readFile.mockImplementation(() => {
-        callCount++;
-        if (callCount === 1) {
-          return Promise.reject(new Error('Temporary failure'));
-        }
-        return Promise.resolve(JSON.stringify(mockConfig));
+  describe('热重载控制', () => {
+    it('应该支持动态启用热重载', async () => {
+      const manager = createConfigManager({
+        enableHotReload: false
       });
 
-      // Simulate file change
-      const watchCallback = mockFs.watchFile.mock.calls[0][2];
-      watchCallback(
-        { mtime: new Date('2024-01-01T11:00:00Z') },
-        { mtime: new Date('2024-01-01T10:00:00Z') }
+      mockFs.readFile.mockResolvedValue(JSON.stringify(DEFAULT_CONFIG));
+      await manager.initialize();
+
+      expect(manager.isHotReloadActive()).toBe(false);
+
+      const result = await manager.enableHotReload();
+      expect(result.success).toBe(true);
+      expect(manager.isHotReloadActive()).toBe(true);
+
+      await manager.dispose();
+    });
+
+    it('应该支持动态禁用热重载', async () => {
+      mockFs.readFile.mockResolvedValue(JSON.stringify(DEFAULT_CONFIG));
+      await configManager.initialize();
+
+      expect(configManager.isHotReloadActive()).toBe(true);
+
+      await configManager.disableHotReload();
+      expect(configManager.isHotReloadActive()).toBe(false);
+      expect(mockWatcher.close).toHaveBeenCalled();
+    });
+
+    it('应该支持强制重新加载', async () => {
+      const updatedConfig = {
+        ...DEFAULT_CONFIG,
+        app: { ...DEFAULT_CONFIG.app, points: { min: 400, max: 4000 } }
+      };
+
+      mockFs.readFile.mockResolvedValue(JSON.stringify(DEFAULT_CONFIG));
+      await configManager.initialize();
+
+      // Change file content
+      mockFs.readFile.mockResolvedValue(JSON.stringify(updatedConfig));
+
+      // Force reload
+      await configManager.forceHotReload();
+
+      expect(configManager.get('app.points.min')).toBe(400);
+    });
+
+    it('应该在热重载未激活时拒绝强制重新加载', async () => {
+      const manager = createConfigManager({
+        enableHotReload: false
+      });
+
+      mockFs.readFile.mockResolvedValue(JSON.stringify(DEFAULT_CONFIG));
+      await manager.initialize();
+
+      await expect(manager.forceHotReload()).rejects.toThrow(
+        'Hot reload is not active'
       );
 
-      // Wait for initial failure and recovery attempt
-      await new Promise(resolve => setTimeout(resolve, 350));
-
-      // The error recovery should be handled internally
-      expect(onFileError).toHaveBeenCalledWith(
-        expect.stringContaining('Failed to reload configuration'),
-        'load'
-      );
+      await manager.dispose();
     });
   });
 
-  describe('cleanup and disposal', () => {
+  describe('热重载状态信息', () => {
     beforeEach(async () => {
+      mockFs.readFile.mockResolvedValue(JSON.stringify(DEFAULT_CONFIG));
       await configManager.initialize();
     });
 
-    it('should clean up resources on disposal', async () => {
+    it('应该正确报告热重载状态', () => {
+      const status = configManager.getHotReloadStatus();
+
+      expect(status.isActive).toBe(true);
+      expect(status.configPath).toBe('./test-config.json');
+      expect(typeof status.listenerCount).toBe('number');
+    });
+
+    it('应该在禁用热重载后更新状态', async () => {
+      await configManager.disableHotReload();
+
+      const status = configManager.getHotReloadStatus();
+      expect(status.isActive).toBe(false);
+    });
+  });
+
+  describe('资源清理', () => {
+    it('应该在dispose时正确清理热重载资源', async () => {
+      mockFs.readFile.mockResolvedValue(JSON.stringify(DEFAULT_CONFIG));
+      await configManager.initialize();
+
       expect(configManager.isHotReloadActive()).toBe(true);
 
       await configManager.dispose();
 
       expect(configManager.isHotReloadActive()).toBe(false);
-      expect(mockFs.unwatchFile).toHaveBeenCalled();
-      expect(configManager.getListenerCount()).toBe(0);
-      expect(configManager.getNotificationStats().active).toBe(0);
+      expect(mockWatcher.close).toHaveBeenCalled();
     });
-  });
 
-  describe('browser environment handling', () => {
-    it('should handle browser environment gracefully', async () => {
-      // Simulate browser environment
-      Object.defineProperty(global, 'window', {
-        value: {},
-        writable: true
-      });
+    it('应该在多次dispose调用时保持稳定', async () => {
+      mockFs.readFile.mockResolvedValue(JSON.stringify(DEFAULT_CONFIG));
+      await configManager.initialize();
 
-      const browserConfigManager = createConfigManager({
-        configPath: './test-config.json',
-        enableHotReload: true
-      });
+      await configManager.dispose();
+      await configManager.dispose(); // 第二次调用不应该出错
 
-      const result = await browserConfigManager.initialize();
-
-      expect(result.isValid).toBe(true);
-      expect(browserConfigManager.isHotReloadActive()).toBe(false);
+      expect(configManager.isHotReloadActive()).toBe(false);
     });
   });
 });

@@ -1,5 +1,5 @@
 // 工具函数导出文件
-export * from './constants';
+// constants.ts已迁移到配置系统
 export * from './tribonacci';
 export { executeRauzyCoreAlgorithm, validateBaseData } from './rauzy-core';
 export { 

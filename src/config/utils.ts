@@ -335,3 +335,66 @@ export function clampValue(value: number, min?: number, max?: number): number {
   }
   return result;
 }
+
+/**
+ * 获取测试ID
+ * @param config 配置对象
+ * @param testIdKey 测试ID键名
+ * @returns 测试ID值
+ */
+export function getTestId(config: AppConfiguration, testIdKey: string): string {
+  // 安全检查：确保配置和testIds存在
+  if (!config || !config.development || !config.development.testIds) {
+    return testIdKey.toLowerCase().replace(/_/g, '-');
+  }
+  return config.development.testIds[testIdKey] || testIdKey.toLowerCase().replace(/_/g, '-');
+}
+
+/**
+ * 获取所有测试ID
+ * @param config 配置对象
+ * @returns 测试ID对象
+ */
+export function getAllTestIds(config: AppConfiguration): Record<string, string> {
+  return config.development.testIds;
+}
+
+/**
+ * 检查调试模式是否启用
+ * @param config 配置对象
+ * @returns 是否启用调试模式
+ */
+export function isDebugEnabled(config: AppConfiguration): boolean {
+  return config.development.debug.enabled;
+}
+
+/**
+ * 检查功能开关是否启用
+ * @param config 配置对象
+ * @param featureKey 功能键名
+ * @returns 是否启用该功能
+ */
+export function isFeatureEnabled(
+  config: AppConfiguration, 
+  featureKey: keyof AppConfiguration['development']['features']
+): boolean {
+  return config.development.features[featureKey];
+}
+
+/**
+ * 获取日志级别
+ * @param config 配置对象
+ * @returns 日志级别
+ */
+export function getLogLevel(config: AppConfiguration): string {
+  return config.development.debug.logLevel;
+}
+
+/**
+ * 检查是否显示性能指标
+ * @param config 配置对象
+ * @returns 是否显示性能指标
+ */
+export function shouldShowPerformanceMetrics(config: AppConfiguration): boolean {
+  return config.development.debug.showPerformanceMetrics;
+}

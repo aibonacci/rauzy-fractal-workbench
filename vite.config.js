@@ -20,6 +20,12 @@ export default defineConfig({
   },
   server: {
     port: 3000,
-    open: true
-  }
+    open: true,
+    // 确保静态文件正确提供
+    fs: {
+      strict: false
+    }
+  },
+  // 确保配置文件在构建时被包含
+  publicDir: 'public'
 })
